@@ -30,7 +30,7 @@ import json
 import utils
 import logging
 
-    
+
 class SmoothBCEwLogits(_WeightedLoss):
     def __init__(self, weight=None, reduction='mean', smoothing=0.0,pos_weight = None):
         super().__init__(weight=weight, reduction=reduction)
@@ -437,7 +437,7 @@ def Parse_args():
 args = Parse_args()
 
 # Set logger
-utils.set_logger(os.path.join(args.model_dir, 'train.log'))
+utils.set_logger(os.path.join(args.model_dir, 'train_dnn.log'))
 
 # Load parameters
 logging.info("Loading params.json from {}".format(args.model_dir))
