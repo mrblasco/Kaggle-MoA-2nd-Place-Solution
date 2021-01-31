@@ -351,7 +351,7 @@ def run_training(fold, seed):
         hidden_size=hidden_size,
     )
 
-    model.load_state_dict(torch.load(mod_name))
+    model.load_state_dict(torch.load(os.path.join(args.model_dir,mod_name)))
     model.to(DEVICE)
 
     predictions = np.zeros((len(test_), len(target_cols)))
