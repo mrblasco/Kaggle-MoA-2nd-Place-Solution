@@ -536,7 +536,7 @@ predictions = np.zeros((len(test), len(target_cols)))
 
 # Averaging on multiple SEEDS
 for seed in SEED:
-    logging.info("Seed {} out of {}".format(seed, len(SEED)))
+    logging.info("Seed {} out of {}".format(SEED.index(seed)+1, len(SEED)))
 
     seed_everything(seed=seed)
     folds = train0.copy()
