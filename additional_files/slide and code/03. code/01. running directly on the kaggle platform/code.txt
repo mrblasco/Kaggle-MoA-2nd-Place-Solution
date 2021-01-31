@@ -1,0 +1,7 @@
+As I have add the host (srandazzo21 and mrbhbs) as collaborators to my private kernel, maybe the simplest way is to run the following notebooks directly on the kaggle platform .
+
+training: notebooks for 3 single models training and model files generating.
+	1D-CNN: https://www.kaggle.com/baosenguo/ble2-dro1-3-ns1-4-tr2
+	TabNet: https://www.kaggle.com/baosenguo/fork-of-ble-w1-6-2-kd-tab1-wgt1-pa1-4
+	DNN: https://www.kaggle.com/baosenguo/ble2-nntrans-tr
+inference & blending: https://www.kaggle.com/baosenguo/ble-f1
