@@ -8,10 +8,12 @@
     , "num_folds" : 5
     , "early_stopping_steps" : 10
     , "early_stop" : "False"
-    , "use_subset" : "False"
-    , "ncompo_genes_dnn" : 600
-    , "ncompo_cells_dnn" : 50
     , "weight_decay_all" : 0.00001
     , "weight_decay_scored" : 0.000003
     , "num_folds_dnn" : 7
+    , "ncompo_genes_dnn" : 600
+    , "ncompo_cells_dnn" : 50
+    , "num_folds_tabnet" : 5
+    , "ncompo_genes_tabnet" : 600
+    , "ncompo_cells_tabnet" : 50
 }
