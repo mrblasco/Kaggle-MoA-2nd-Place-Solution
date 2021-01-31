@@ -1,0 +1,12 @@
+{
+      "ncompo_genes" : 50
+    , "ncompo_cells" : 15
+    , "num_epochs" : 23
+    , "batch_size" : 128
+    , "learning_rate" : 0.001
+    , "weight_decay" : 0.00001
+    , "num_folds" : 5
+    , "early_stopping_steps" : 10
+    , "early_stop" : "False"
+    , "use_subset" : "False"
+}
