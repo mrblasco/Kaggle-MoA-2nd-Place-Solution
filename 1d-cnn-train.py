@@ -187,29 +187,29 @@ class Model(nn.Module):
 
     def forward(self, x):
 
-        x = self.batch_norm1(x)
+        x = self.batch_norm1(x) if x.size()[0] > 1 else x 
         x = self.dropout1(x)
         x = F.celu(self.dense1(x), alpha=0.06)
 
         x = x.reshape(x.shape[0],self.cha_1,
                       self.cha_1_reshape)
 
-        x = self.batch_norm_c1(x)
+        x = self.batch_norm_c1(x) if x.size()[0] > 1 else x 
         x = self.dropout_c1(x)
         x = F.relu(self.conv1(x))
 
         x = self.ave_po_c1(x)
 
-        x = self.batch_norm_c2(x)
+        x = self.batch_norm_c2(x) if x.size()[0] > 1 else x 
         x = self.dropout_c2(x)
         x = F.relu(self.conv2(x))
         x_s = x
 
-        x = self.batch_norm_c2_1(x)
+        x = self.batch_norm_c2_1(x) if x.size()[0] > 1 else x 
         x = self.dropout_c2_1(x)
         x = F.relu(self.conv2_1(x))
 
-        x = self.batch_norm_c2_2(x)
+        x = self.batch_norm_c2_2(x) if x.size()[0] > 1 else x 
         x = self.dropout_c2_2(x)
         x = F.relu(self.conv2_2(x))
         x =  x * x_s
@@ -218,7 +218,7 @@ class Model(nn.Module):
 
         x = self.flt(x)
 
-        x = self.batch_norm3(x)
+        x = self.batch_norm3(x) if x.size()[0] > 1 else x 
         x = self.dropout3(x)
         x = self.dense3(x)
 
@@ -275,9 +275,9 @@ def run_training(fold, seed):
     train_dataset = TrainDataset(x_train, y_train_ns)
     valid_dataset = TrainDataset(x_valid, y_valid_ns)
     trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE
-                                              , shuffle = True, drop_last = True)
+                                              , shuffle = True)
     validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE
-                                              , shuffle = False, drop_last = True)
+                                              , shuffle = False)
 
     model = Model(
         num_features=num_features,
@@ -419,15 +419,12 @@ def Parse_args():
     args = args.parse_args()
     return args
 
-# -------------------------------------------------------
 # MAIN -------------------------------------------------------
-# -------------------------------------------------------
 
 args = Parse_args()
 
 # Set logger
 utils.set_logger(os.path.join(args.model_dir, 'train.log'))
-
 
 # Load parameters
 logging.info("Loading params.json from {}".format(args.model_dir))
@@ -530,7 +527,8 @@ for key_i in feat_dic.keys():
     value_i = feat_dic[key_i]
     print(key_i,len(value_i))
     feature_cols += value_i
-len(feature_cols)
+
+logging.info("Final num. of features {}".format(len(feature_cols)))
 feature_cols0 = dp(feature_cols)
     
 oof = np.zeros((len(train), len(target_cols)))
@@ -607,7 +605,7 @@ for seed in SEED:
     oof_tmp = dp(oof)
     oof_tmp = oof_tmp * len(SEED) / (SEED.index(seed)+1)
     sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
-    
+
 
 logging.info(np.mean([log_loss(train[target_cols].iloc[:,i],oof[:,i]) for i in range(len(target_cols))]))
 
@@ -621,8 +619,7 @@ train0.to_csv(os.path.join(args.model_dir, 'train_pred.csv'), index=False)
 sub = sample_submission.drop(columns=target_cols).merge(test[['sig_id']+target_cols], on='sig_id', how='left').fillna(0)
 sub.to_csv(os.path.join(args.model_dir, 'submission.csv'), index=False)
 
-pd.DataFrame(sc_dic,index=['sc']).T
-
+logging.info(pd.DataFrame(sc_dic,index=['sc']).T)
 logging.info("done!")
 
 
