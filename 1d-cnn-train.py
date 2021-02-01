@@ -616,8 +616,8 @@ test[target_cols] = predictions
 train0.to_csv(os.path.join(args.model_dir, 'train_pred.csv'), index=False)
 ### for blend test ###
 
-sub = sample_submission.drop(columns=target_cols).merge(test[['sig_id']+target_cols], on='sig_id', how='left').fillna(0)
-sub.to_csv(os.path.join(args.model_dir, 'submission.csv'), index=False)
+# sub = sample_submission.drop(columns=target_cols).merge(test[['sig_id']+target_cols], on='sig_id', how='left').fillna(0)
+test.to_csv(os.path.join(args.model_dir, 'submission.csv'), index=False)
 
 logging.info(pd.DataFrame(sc_dic,index=['sc']).T)
 logging.info("done!")
