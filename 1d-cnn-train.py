@@ -274,8 +274,10 @@ def run_training(fold, seed):
 
     train_dataset = TrainDataset(x_train, y_train_ns)
     valid_dataset = TrainDataset(x_valid, y_valid_ns)
-    trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE
+                                              , shuffle = True, drop_last = True)
+    validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE
+                                              , shuffle = False, drop_last = True)
 
     model = Model(
         num_features=num_features,
@@ -296,7 +298,7 @@ def run_training(fold, seed):
     early_step = 0
 
     for epoch in range(1):
-        train_loss = train_fn(model, optimizer,scheduler, loss_tr, trainloader, DEVICE)
+        train_loss = train_fn(model, optimizer, scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
         logging.info(f"FOLD: {fold}, EPOCH: {epoch},train_loss: {train_loss}, valid_loss: {valid_loss}")
 
