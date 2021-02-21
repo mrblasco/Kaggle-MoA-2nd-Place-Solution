@@ -477,9 +477,9 @@ train0[target_cols] = oof
 test[target_cols] = predictions
 
 # save predictions and metrics
-train0.to_csv(os.path.join(args.model_dir, '1d_train.csv'), index=False)
-test.to_csv(os.path.join(args.model_dir, '1d_test.csv'), index=False)
-pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, '1d_sc_dic.csv'))
+train0.to_csv(os.path.join(args.model_dir, 'cnn_train.csv'), index=False)
+test.to_csv(os.path.join(args.model_dir, 'cnn_test.csv'), index=False)
+pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'cnn_sc_dic.csv'))
 
 logging.info("done!")
 

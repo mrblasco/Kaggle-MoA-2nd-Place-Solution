@@ -299,7 +299,8 @@ params = utils.Params(json_path)
 
 seed_everything(seed=42)
 
-SEED = [200, 201, 202, 203 ,204, 205, 206, 207, 208, 209]
+# SEED = [200, 201, 202, 203 ,204, 205, 206, 207, 208, 209]
+SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 NFOLDS = params.num_folds_dnn
 

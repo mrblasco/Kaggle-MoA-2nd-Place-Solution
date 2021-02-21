@@ -316,7 +316,8 @@ if __name__ == '__main__':
 
   seed_everything(seed=42)
 
-  SEED = [100,101,102,103,104,105,106,107,108,109]
+  #SEED = [100,101,102,103,104,105,106,107,108,109]
+  SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
   # load data 
   logging.info("Loading the datasets from {}".format(args.input_dir))  
@@ -468,9 +469,9 @@ if __name__ == '__main__':
   test[target_cols] = predictions
 
   # save predictions and metrics
-  train0.to_csv(os.path.join(args.model_dir, 'dnn_train.csv'), index=False)
-  test.to_csv(os.path.join(args.model_dir, 'dnn_test.csv'), index=False)
-  pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'dnn_sc_dic.csv'))
+  train0.to_csv(os.path.join(args.model_dir, 'tabnet_train.csv'), index=False)
+  test.to_csv(os.path.join(args.model_dir, 'tabnet_test.csv'), index=False)
+  pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'tabnet_sc_dic.csv'))
 
   logging.info("done!")
 
