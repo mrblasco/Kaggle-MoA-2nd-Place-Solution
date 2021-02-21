@@ -298,7 +298,8 @@ assert os.path.isfile(json_path), "No json file found at {}".format(json_path)
 params = utils.Params(json_path)
 
 seed_everything(seed=42)
-SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+#SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+SEED = range(params.num_seeds)
 
 # load data 
 logging.info("Loading the datasets from {}".format(args.input_dir))  

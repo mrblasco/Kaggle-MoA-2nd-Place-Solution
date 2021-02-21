@@ -317,7 +317,7 @@ if __name__ == '__main__':
   seed_everything(seed=42)
 
   #SEED = [100,101,102,103,104,105,106,107,108,109]
-  SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  SEED = range(params.num_seeds) #[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
   # load data 
   logging.info("Loading the datasets from {}".format(args.input_dir))  
