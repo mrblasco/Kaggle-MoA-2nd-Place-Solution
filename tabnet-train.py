@@ -467,12 +467,12 @@ if __name__ == '__main__':
   train0[target_cols] = oof
   test[target_cols] = predictions
 
-  ### for blend test ###
-  train0.to_csv(os.path.join(args.model_dir, 'train_pred_tabnet.csv'), index=False)
-  ### for blend test ###
+  # save predictions and metrics
+  train0.to_csv(os.path.join(args.model_dir, 'dnn_train.csv'), index=False)
+  test.to_csv(os.path.join(args.model_dir, 'dnn_test.csv'), index=False)
+  pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'dnn_sc_dic.csv'))
 
-  sub = sample_submission.drop(columns=target_cols).merge(test[['sig_id']+target_cols], on='sig_id', how='left').fillna(0)
-  sub.to_csv(os.path.join(args.model_dir, 'solution_tabnet.csv'), index=False)
+  logging.info("done!")
 
 
 

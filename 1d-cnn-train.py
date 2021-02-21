@@ -30,60 +30,12 @@ import json
 import utils
 import logging
 
-class SmoothBCEwLogits(_WeightedLoss):
-    def __init__(self, weight=None, reduction='mean', smoothing=0.0):
-        super().__init__(weight=weight, reduction=reduction)
-        self.smoothing = smoothing
-        self.weight = weight
-        self.reduction = reduction
-
-    @staticmethod
-    def _smooth(targets:torch.Tensor, n_labels:int, smoothing=0.0):
-        assert 0 <= smoothing < 1
-        with torch.no_grad():
-            targets = targets * (1.0 - smoothing) + 0.5 * smoothing
-        return targets
-
-    def forward(self, inputs, targets):
-        targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1),
-            self.smoothing)
-        loss = F.binary_cross_entropy_with_logits(inputs, targets,self.weight,
-                                                  pos_weight = pos_weight)
-
-        if  self.reduction == 'sum':
-            loss = loss.sum()
-        elif  self.reduction == 'mean':
-            loss = loss.mean()
-
-        return loss
-
-class TrainDataset:
-    def __init__(self, features, targets):
-        self.features = features
-        self.targets = targets
-
-    def __len__(self):
-        return (self.features.shape[0])
-
-    def __getitem__(self, idx):
-        dct = {
-            'x' : torch.tensor(self.features[idx, :], dtype=torch.float),
-            'y' : torch.tensor(self.targets[idx, :], dtype=torch.float)            
-        }
-        return dct
-
-class TestDataset:
-    def __init__(self, features):
-        self.features = features
-
-    def __len__(self):
-        return (self.features.shape[0])
-
-    def __getitem__(self, idx):
-        dct = {
-            'x' : torch.tensor(self.features[idx, :], dtype=torch.float)
-        }
-        return dct
+# CNN
+import model.cnn 
+from model.cnn import SmoothBCEwLogits
+from model.cnn import TrainDataset
+from model.cnn import TestDataset
+from model.cnn import Model
 
 def train_fn(model, optimizer, scheduler, loss_fn, dataloader, device):
     model.train()
@@ -136,93 +88,6 @@ def inference_fn(model, dataloader, device):
     preds = np.concatenate(preds)
 
     return preds
-
-class Model(nn.Module):
-    def __init__(self, num_features, num_targets, hidden_size):
-        super(Model, self).__init__()
-        cha_1 = 256
-        cha_2 = 512
-        cha_3 = 512
-
-        cha_1_reshape = int(hidden_size/cha_1)
-        cha_po_1 = int(hidden_size/cha_1/2)
-        cha_po_2 = int(hidden_size/cha_1/2/2) * cha_3
-
-        self.cha_1 = cha_1
-        self.cha_2 = cha_2
-        self.cha_3 = cha_3
-        self.cha_1_reshape = cha_1_reshape
-        self.cha_po_1 = cha_po_1
-        self.cha_po_2 = cha_po_2
-
-        self.batch_norm1 = nn.BatchNorm1d(num_features)
-        self.dropout1 = nn.Dropout(0.1)
-        self.dense1 = nn.utils.weight_norm(nn.Linear(num_features, hidden_size))
-
-        self.batch_norm_c1 = nn.BatchNorm1d(cha_1)
-        self.dropout_c1 = nn.Dropout(0.1)
-        self.conv1 = nn.utils.weight_norm(nn.Conv1d(cha_1,cha_2, kernel_size = 5, stride = 1, padding=2,  bias=False),dim=None)
-
-        self.ave_po_c1 = nn.AdaptiveAvgPool1d(output_size = cha_po_1)
-
-        self.batch_norm_c2 = nn.BatchNorm1d(cha_2)
-        self.dropout_c2 = nn.Dropout(0.1)
-        self.conv2 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_2, kernel_size = 3, stride = 1, padding=1, bias=True),dim=None)
-
-        self.batch_norm_c2_1 = nn.BatchNorm1d(cha_2)
-        self.dropout_c2_1 = nn.Dropout(0.3)
-        self.conv2_1 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_2, kernel_size = 3, stride = 1, padding=1, bias=True),dim=None)
-
-        self.batch_norm_c2_2 = nn.BatchNorm1d(cha_2)
-        self.dropout_c2_2 = nn.Dropout(0.2)
-        self.conv2_2 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_3, kernel_size = 5, stride = 1, padding=2, bias=True),dim=None)
-
-        self.max_po_c2 = nn.MaxPool1d(kernel_size=4, stride=2, padding=1)
-
-        self.flt = nn.Flatten()
-
-        self.batch_norm3 = nn.BatchNorm1d(cha_po_2)
-        self.dropout3 = nn.Dropout(0.2)
-        self.dense3 = nn.utils.weight_norm(nn.Linear(cha_po_2, num_targets))
-
-    def forward(self, x):
-
-        x = self.batch_norm1(x) if x.size()[0] > 1 else x 
-        x = self.dropout1(x)
-        x = F.celu(self.dense1(x), alpha=0.06)
-
-        x = x.reshape(x.shape[0],self.cha_1,
-                      self.cha_1_reshape)
-
-        x = self.batch_norm_c1(x) if x.size()[0] > 1 else x 
-        x = self.dropout_c1(x)
-        x = F.relu(self.conv1(x))
-
-        x = self.ave_po_c1(x)
-
-        x = self.batch_norm_c2(x) if x.size()[0] > 1 else x 
-        x = self.dropout_c2(x)
-        x = F.relu(self.conv2(x))
-        x_s = x
-
-        x = self.batch_norm_c2_1(x) if x.size()[0] > 1 else x 
-        x = self.dropout_c2_1(x)
-        x = F.relu(self.conv2_1(x))
-
-        x = self.batch_norm_c2_2(x) if x.size()[0] > 1 else x 
-        x = self.dropout_c2_2(x)
-        x = F.relu(self.conv2_2(x))
-        x =  x * x_s
-
-        x = self.max_po_c2(x)
-
-        x = self.flt(x)
-
-        x = self.batch_norm3(x) if x.size()[0] > 1 else x 
-        x = self.dropout3(x)
-        x = self.dense3(x)
-
-        return x
 
 def run_training(fold, seed):
 
@@ -300,7 +165,7 @@ def run_training(fold, seed):
     for epoch in range(1):
         train_loss = train_fn(model, optimizer, scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
-        logging.info(f"FOLD: {fold}, EPOCH: {epoch},train_loss: {train_loss}, valid_loss: {valid_loss}")
+        logging.info(f"FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}")
 
     model.dense3 = nn.utils.weight_norm(nn.Linear(model.cha_po_2, num_targets))
     model.to(DEVICE)
@@ -330,7 +195,7 @@ def run_training(fold, seed):
         train_loss = train_fn(model, optimizer,scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
         logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch},train_loss: {train_loss}, valid_loss: {valid_loss}")
-
+        
         if valid_loss < best_loss:
 
             best_loss = valid_loss
@@ -606,20 +471,16 @@ for seed in SEED:
     oof_tmp = oof_tmp * len(SEED) / (SEED.index(seed)+1)
     sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
 
-
 logging.info(np.mean([log_loss(train[target_cols].iloc[:,i],oof[:,i]) for i in range(len(target_cols))]))
 
 train0[target_cols] = oof
 test[target_cols] = predictions
 
-### for blend test ###
-train0.to_csv(os.path.join(args.model_dir, 'train_pred.csv'), index=False)
-### for blend test ###
+# save predictions and metrics
+train0.to_csv(os.path.join(args.model_dir, '1d_train.csv'), index=False)
+test.to_csv(os.path.join(args.model_dir, '1d_test.csv'), index=False)
+pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, '1d_sc_dic.csv'))
 
-# sub = sample_submission.drop(columns=target_cols).merge(test[['sig_id']+target_cols], on='sig_id', how='left').fillna(0)
-test.to_csv(os.path.join(args.model_dir, 'submission.csv'), index=False)
-
-logging.info(pd.DataFrame(sc_dic,index=['sc']).T)
 logging.info("done!")
 
 
