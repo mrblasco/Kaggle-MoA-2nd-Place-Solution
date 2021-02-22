@@ -179,7 +179,7 @@ def run_training(fold, seed):
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, pct_start=0.1, div_factor=1e3, 
                                               max_lr=1e-2, epochs=EPOCHS, steps_per_epoch=len(trainloader))
 
-    loss_tr = SmoothBCEwLogits(smoothing = 0.001)
+    loss_tr = SmoothBCEwLogits(smoothing = 0.001).pos_weight(pos_weight)
     loss_va = nn.BCEWithLogitsLoss()    
 
     early_stopping_steps = EARLY_STOPPING_STEPS
