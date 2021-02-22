@@ -20,9 +20,8 @@ class SmoothBCEwLogits(_WeightedLoss):
 
     def forward(self, inputs, targets):
         targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1), self.smoothing)
-        #loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight, pos_weight = pos_weight)
-         loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight)
-
+        loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight)
+        
         if  self.reduction == 'sum':
             loss = loss.sum()
         elif  self.reduction == 'mean':
