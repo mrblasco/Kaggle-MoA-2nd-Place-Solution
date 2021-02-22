@@ -5,7 +5,7 @@ import torch.optim as optim
 from torch.nn.modules.loss import _WeightedLoss
 
 class SmoothBCEwLogits(_WeightedLoss):
-    def __init__(self, weight=None, reduction='mean', smoothing=0.0, pos_weight = ):
+    def __init__(self, weight=None, reduction='mean', smoothing=0.0):
         super().__init__(weight=weight, reduction=reduction)
         self.smoothing = smoothing
         self.weight = weight
