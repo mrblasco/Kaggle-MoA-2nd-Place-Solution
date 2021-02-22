@@ -108,10 +108,11 @@ class Model(nn.Module):
         return x
 
 class FineTuneScheduler:
-    def __init__(self, epochs):
+    def __init__(self, epochs, device):
         self.epochs = epochs
         self.epochs_per_step = 0
         self.frozen_layers = []
+        self.device = device
 
     def copy_without_top(self, model, num_features, num_targets, num_targets_new):
         self.frozen_layers = []
@@ -138,7 +139,7 @@ class FineTuneScheduler:
         model_new.batch_norm5 = nn.BatchNorm1d(model_new.hidden_size[3])
         model_new.dropout5 = nn.Dropout(model_new.dropout_value[3])
         model_new.dense5 = nn.utils.weight_norm(nn.Linear(model_new.hidden_size[-1], num_targets_new))
-        model_new.to(DEVICE)
+        model_new.to(self.device)
         return model_new
 
     def step(self, epoch, model):

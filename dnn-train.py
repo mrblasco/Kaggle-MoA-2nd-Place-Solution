@@ -190,7 +190,7 @@ def run_training(fold, seed):
                 torch.save(model.state_dict(), os.path.join(args.model_dir, mod_name))
         return oof
 
-    fine_tune_scheduler = FineTuneScheduler(EPOCHS)
+    fine_tune_scheduler = FineTuneScheduler(EPOCHS, DEVICE)
 
     pretrained_model = Model(num_features, num_all_targets)
     pretrained_model.to(DEVICE)
