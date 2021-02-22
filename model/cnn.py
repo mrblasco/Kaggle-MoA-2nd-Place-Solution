@@ -5,11 +5,12 @@ import torch.optim as optim
 from torch.nn.modules.loss import _WeightedLoss
 
 class SmoothBCEwLogits(_WeightedLoss):
-    def __init__(self, weight=None, reduction='mean', smoothing=0.0):
+    def __init__(self, weight=None, reduction='mean', smoothing=0.0, pos_weight = None):
         super().__init__(weight=weight, reduction=reduction)
         self.smoothing = smoothing
         self.weight = weight
         self.reduction = reduction
+        self.pos_weight = pos_weight
 
     @staticmethod
     def _smooth(targets:torch.Tensor, n_labels:int, smoothing=0.0):
@@ -20,7 +21,7 @@ class SmoothBCEwLogits(_WeightedLoss):
 
     def forward(self, inputs, targets):
         targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1), self.smoothing)
-        loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight)
+        loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight, pos_weight = self.pos_weight)
         
         if  self.reduction == 'sum':
             loss = loss.sum()
