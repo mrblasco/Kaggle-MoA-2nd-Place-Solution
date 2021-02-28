@@ -145,22 +145,23 @@ def run_training(fold, seed):
             return np.mean(-aux)
 
     MAX_EPOCH = 120
-    tabnet_params = dict(
-        n_d = 64,
-        n_a = 128,
-        n_steps = 1,
-        gamma = 1.3,
-        lambda_sparse = 0,
-        n_independent = 2,
-        n_shared = 1,
-        optimizer_fn = optim.Adam,
-        optimizer_params = dict(lr = 2e-2, weight_decay = 1e-5),
-        mask_type = "entmax",
-        scheduler_params = dict(
-            mode = "min", patience = 5, min_lr = 1e-5, factor = 0.9),
-        scheduler_fn = ReduceLROnPlateau,
-        seed = seed,
-        verbose = 10
+    tabnet_params = dict(n_d = 64
+        , n_a = 128
+        , n_steps = 1
+        , gamma = 1.3
+        , lambda_sparse = 0
+        , n_independent = 2
+        , n_shared = 1
+        , optimizer_fn = optim.Adam
+        , optimizer_params = dict(lr = LEARNING, weight_decay = WEIGHT_DECAY)  # 2e-2,1e-5
+        , mask_type = "entmax"
+        , scheduler_params = dict(mode = "min"
+            , patience = 5
+            , min_lr = LEARNING #1e-5
+            , factor = 0.9)
+        , scheduler_fn = ReduceLROnPlateau
+        , seed = seed
+        , verbose = 10
     )
 
     ### Fit ###
@@ -288,14 +289,11 @@ def seed_everything(seed=42):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def Parse_args():
-    args = argparse.ArgumentParser()
-    args.add_argument('--input_dir', default='./data/from_kaggle'
-                    , help='Directory containing dataset')
-    args.add_argument('--model_dir', default='./experiments/base_model'
-                      , help='Directory containing params.json')
-    args = args.parse_args()
-    return args
+args = argparse.ArgumentParser()
+args.add_argument('--input_dir', default='./data/from_kaggle'
+                , help='Directory containing dataset')
+args.add_argument('--model_dir', default='./experiments/base_model'
+                  , help='Directory containing params.json')
 
 # -------------------------------------------------------
 # MAIN -------------------------------------------------------
@@ -303,7 +301,7 @@ def Parse_args():
 
 if __name__ == '__main__':
 
-  args = Parse_args()
+  args = args.parse_args()
 
   # Set logger
   utils.set_logger(os.path.join(args.model_dir, 'train_tabnet.log'))
@@ -316,7 +314,15 @@ if __name__ == '__main__':
 
   seed_everything(seed=42)
 
+  # Set HyperParameters
   SEEDS = params.num_seeds 
+  DEVICE  = ('cuda' if torch.cuda.is_available() else 'cpu')
+  NFOLDS  = params.num_folds_tabnet # 5    
+  n_comp1 = params.ncompo_genes_tabnet #600
+  n_comp2 = params.ncompo_cells_tabnet #50
+  LEARNING = params.learning_rate
+  WEIGHT_DECAY = params.weight_decay 
+
 
   # load data 
   logging.info("Loading the datasets from {}".format(args.input_dir))  
@@ -405,12 +411,6 @@ if __name__ == '__main__':
       seed_everything(seed=seed)
       folds = train0.copy()
       feature_cols = dp(feature_cols0)
-
-      # HyperParameters
-      DEVICE  = ('cuda' if torch.cuda.is_available() else 'cpu')
-      NFOLDS  = params.num_folds_tabnet # 5    
-      n_comp1 = params.ncompo_genes_tabnet #600
-      n_comp2 = params.ncompo_cells_tabnet #50
     
       # kfold - leave drug out
       target2 = target.copy()

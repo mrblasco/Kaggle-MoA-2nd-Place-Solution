@@ -42,7 +42,8 @@ if __name__ == "__main__":
     params = utils.Params(json_path)
     
     # Model files
-    files = ['1d-cnn-train.py', 'dnn-train.py', 'tabnet-train.py']
+    #files = ['1d-cnn-train.py', 'dnn-train.py', 'tabnet-train.py']
+    files = ['tabnet-train.py']
 
     # Perform hypersearch over one parameter
     learning_rates = [1e-4, 1e-3, 1e-2]
