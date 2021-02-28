@@ -316,8 +316,7 @@ if __name__ == '__main__':
 
   seed_everything(seed=42)
 
-  #SEED = [100,101,102,103,104,105,106,107,108,109]
-  SEED = range(params.num_seeds) #[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  SEEDS = params.num_seeds 
 
   # load data 
   logging.info("Loading the datasets from {}".format(args.input_dir))  
@@ -401,8 +400,8 @@ if __name__ == '__main__':
   predictions = np.zeros((len(test), len(target_cols)))
 
   # Averaging on multiple SEEDS
-  for seed in SEED:
-      logging.info("Seed {} out of {}".format(SEED.index(seed)+1, len(SEED)))
+  for seed in range(SEEDS):
+      logging.info("Seed {} out of {}".format(seed+1, SEEDS))
       seed_everything(seed=seed)
       folds = train0.copy()
       feature_cols = dp(feature_cols0)
@@ -456,11 +455,11 @@ if __name__ == '__main__':
       wgt_bce.__defaults__ = (None, None, None, 'mean', pos_weight)
     
       oof_, predictions_ = run_k_fold(NFOLDS, seed)
-      oof += oof_ / len(SEED)
-      predictions += predictions_ / len(SEED)
+      oof += oof_ / SEEDS
+      predictions += predictions_ / SEEDS
 
       oof_tmp = dp(oof)
-      oof_tmp = oof_tmp * len(SEED) / (SEED.index(seed)+1)
+      oof_tmp = oof_tmp * SEEDS / (seed+1)
       sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
 
   logging.info(np.mean([log_loss(train[target_cols].iloc[:,i], oof[:,i]) for i in range(len(target_cols))]))

@@ -194,7 +194,7 @@ def run_training(fold, seed):
 
         train_loss = train_fn(model, optimizer,scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
-        logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch},train_loss: {train_loss}, valid_loss: {valid_loss}")
+        logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}")
         
         if valid_loss < best_loss:
 
@@ -218,7 +218,7 @@ def run_training(fold, seed):
         hidden_size=hidden_size,
     )
 
-    model.load_state_dict(torch.load(os.path.join(args.model_dir,mod_name)))
+    model.load_state_dict(torch.load(os.path.join(args.model_dir, mod_name)))
     model.to(DEVICE)
 
     predictions = np.zeros((len(test_), len(target_cols)))
@@ -275,18 +275,14 @@ def seed_everything(seed=42):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def Parse_args():
-    args = argparse.ArgumentParser()
-    args.add_argument('--input_dir', default='./data/from_kaggle'
-                    , help='Directory containing dataset')
-    args.add_argument('--model_dir', default='./experiments/base_model'
-                      , help='Directory containing params.json')
-    args = args.parse_args()
-    return args
+
+args = argparse.ArgumentParser()
+args.add_argument('--input_dir', default='./data/from_kaggle', help='Directory containing dataset')
+args.add_argument('--model_dir', default='./experiments/base_model', help='Directory containing params.json')
 
 # MAIN -------------------------------------------------------
 
-args = Parse_args()
+args = args.parse_args()
 
 # Set logger
 utils.set_logger(os.path.join(args.model_dir, 'train.log'))
@@ -298,7 +294,6 @@ assert os.path.isfile(json_path), "No json file found at {}".format(json_path)
 params = utils.Params(json_path)
 
 seed_everything(seed=42)
-#SEED = [0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 SEED = range(params.num_seeds)
 
 # load data 
@@ -472,7 +467,7 @@ for seed in SEED:
     oof_tmp = oof_tmp * len(SEED) / (SEED.index(seed)+1)
     sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
 
-logging.info(np.mean([log_loss(train[target_cols].iloc[:,i],oof[:,i]) for i in range(len(target_cols))]))
+logging.info(np.mean([log_loss(train[target_cols].iloc[:,i], oof[:,i]) for i in range(len(target_cols))]))
 
 train0[target_cols] = oof
 test[target_cols] = predictions

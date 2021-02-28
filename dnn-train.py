@@ -106,46 +106,46 @@ def run_training(fold, seed):
     #------------ norm --------------
     col_num = list(set(feat_dic['gene'] + feat_dic['cell']) & set(feature_cols))
     col_num.sort()
-    x_train[col_num],ss = norm_fit(x_train[col_num],True,'quan')
-    x_valid[col_num]    = norm_tra(x_valid[col_num],ss)
-    x_test[col_num]     = norm_tra(x_test[col_num],ss)
+    x_train[col_num], ss = norm_fit(x_train[col_num], True, 'quan')
+    x_valid[col_num]    = norm_tra(x_valid[col_num], ss)
+    x_test[col_num]     = norm_tra(x_test[col_num], ss)
 
     #------------ pca --------------
-    def pca_pre(tr,va,te,
-                n_comp,feat_raw,feat_new):
+    def pca_pre(tr, va, te, 
+                n_comp, feat_raw, feat_new):
         pca = PCA(n_components=n_comp, random_state=42)
-        tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]),columns=feat_new)
-        va2 = pd.DataFrame(pca.transform(va[feat_raw]),columns=feat_new)
-        te2 = pd.DataFrame(pca.transform(te[feat_raw]),columns=feat_new)
-        return(tr2,va2,te2)
+        tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]), columns=feat_new)
+        va2 = pd.DataFrame(pca.transform(va[feat_raw]), columns=feat_new)
+        te2 = pd.DataFrame(pca.transform(te[feat_raw]), columns=feat_new)
+        return(tr2, va2, te2)
 
     pca_feat_g = [f'pca_G-{i}' for i in range(n_comp1)]
     feat_dic['pca_g'] = pca_feat_g
-    x_tr_g_pca,x_va_g_pca,x_te_g_pca = pca_pre(x_train,x_valid,x_test,
-                                               n_comp1,feat_dic['gene'],pca_feat_g)
-    x_train = pd.concat([x_train,x_tr_g_pca],axis = 1)
-    x_valid = pd.concat([x_valid,x_va_g_pca],axis = 1)
-    x_test  = pd.concat([x_test,x_te_g_pca],axis = 1)
+    x_tr_g_pca, x_va_g_pca, x_te_g_pca = pca_pre(x_train, x_valid, x_test, 
+                                               n_comp1, feat_dic['gene'], pca_feat_g)
+    x_train = pd.concat([x_train, x_tr_g_pca], axis = 1)
+    x_valid = pd.concat([x_valid, x_va_g_pca], axis = 1)
+    x_test  = pd.concat([x_test, x_te_g_pca], axis = 1)
 
     pca_feat_g = [f'pca_C-{i}' for i in range(n_comp2)]
     feat_dic['pca_c'] = pca_feat_g
-    x_tr_c_pca,x_va_c_pca,x_te_c_pca = pca_pre(x_train,x_valid,x_test,
-                                               n_comp2,feat_dic['cell'],pca_feat_g)
-    x_train = pd.concat([x_train,x_tr_c_pca],axis = 1)
-    x_valid = pd.concat([x_valid,x_va_c_pca],axis = 1)
-    x_test  = pd.concat([x_test,x_te_c_pca], axis = 1)
+    x_tr_c_pca, x_va_c_pca, x_te_c_pca = pca_pre(x_train, x_valid, x_test, 
+                                               n_comp2, feat_dic['cell'], pca_feat_g)
+    x_train = pd.concat([x_train, x_tr_c_pca], axis = 1)
+    x_valid = pd.concat([x_valid, x_va_c_pca], axis = 1)
+    x_test  = pd.concat([x_test, x_te_c_pca], axis = 1)
 
     #------------ var --------------
     from sklearn.feature_selection import VarianceThreshold
     var_thresh = VarianceThreshold(0.8)
     var_thresh.fit(x_train)
-    x_train = x_train.loc[:,var_thresh.variances_ > 0.8]
-    x_valid = x_valid.loc[:,var_thresh.variances_ > 0.8]
-    x_test  = x_test.loc[:,var_thresh.variances_  > 0.8]
+    x_train = x_train.loc[:, var_thresh.variances_ > 0.8]
+    x_valid = x_valid.loc[:, var_thresh.variances_ > 0.8]
+    x_test  = x_test.loc[:, var_thresh.variances_  > 0.8]
 
     num_features = x_train.shape[1]
 
-    x_train,x_valid,x_test = x_train.values,x_valid.values,x_test.values
+    x_train, x_valid, x_test = x_train.values, x_valid.values, x_test.values
 
     def train_model(model, tag_name, target_cols_now, fine_tune_scheduler=None):
         if tag_name == 'ALL_TARGETS':
@@ -159,17 +159,17 @@ def run_training(fold, seed):
         validloader = torch.utils.data.DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=WEIGHT_DECAY[tag_name])
-        scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer,
-                                                  steps_per_epoch=len(trainloader),
-                                                  pct_start=PCT_START,
+        scheduler = optim.lr_scheduler.OneCycleLR(optimizer=optimizer, 
+                                                  steps_per_epoch=len(trainloader), 
+                                                  pct_start=PCT_START, 
                                                   div_factor=DIV_FACTOR[tag_name], 
-                                                  max_lr=MAX_LR[tag_name],
+                                                  max_lr=MAX_LR[tag_name], 
                                                   epochs=EPOCHS)
 
         if tag_name == 'ALL_TARGETS':
-            loss_tr = SmoothBCEwLogits(smoothing=0.001,pos_weight = pos_weight_all)
+            loss_tr = SmoothBCEwLogits(smoothing=0.001, pos_weight = pos_weight_all)
         else:
-            loss_tr = SmoothBCEwLogits(smoothing=0.001,pos_weight = pos_weight)
+            loss_tr = SmoothBCEwLogits(smoothing=0.001, pos_weight = pos_weight)
         loss_fn = nn.BCEWithLogitsLoss()
 
         oof = np.zeros((len(train), len(target_cols_now)))
@@ -238,24 +238,24 @@ def run_k_fold(NFOLDS, seed):
 
     return oof, predictions
 
-def norm_fit(df_1,saveM = True, sc_name = 'zsco'):   
-    from sklearn.preprocessing import StandardScaler,MinMaxScaler,MaxAbsScaler,RobustScaler,Normalizer,QuantileTransformer,PowerTransformer
-    ss_1_dic = {'zsco':StandardScaler(),
-                'mima':MinMaxScaler(),
+def norm_fit(df_1, saveM = True, sc_name = 'zsco'):   
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler, Normalizer, QuantileTransformer, PowerTransformer
+    ss_1_dic = {'zsco':StandardScaler(), 
+                'mima':MinMaxScaler(), 
                 'maxb':MaxAbsScaler(), 
-                'robu':RobustScaler(),
+                'robu':RobustScaler(), 
                 'norm':Normalizer(), 
-                'quan':QuantileTransformer(n_quantiles=100,random_state=0, output_distribution="normal"),
+                'quan':QuantileTransformer(n_quantiles=100, random_state=0, output_distribution="normal"), 
                 'powe':PowerTransformer()}
     ss_1 = ss_1_dic[sc_name]
-    df_2 = pd.DataFrame(ss_1.fit_transform(df_1),index = df_1.index,columns = df_1.columns)
+    df_2 = pd.DataFrame(ss_1.fit_transform(df_1), index = df_1.index, columns = df_1.columns)
     if saveM == False:
         return(df_2)
     else:
-        return(df_2,ss_1)
+        return(df_2, ss_1)
 
-def norm_tra(df_1,ss_x):
-    df_2 = pd.DataFrame(ss_x.transform(df_1),index = df_1.index,columns = df_1.columns)
+def norm_tra(df_1, ss_x):
+    df_2 = pd.DataFrame(ss_x.transform(df_1), index = df_1.index, columns = df_1.columns)
     return(df_2)
 
 def g_table(list1):
@@ -275,18 +275,15 @@ def seed_everything(seed=42):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def Parse_args():
-    args = argparse.ArgumentParser()
-    args.add_argument('--input_dir', default='./data/from_kaggle'
-                    , help='Directory containing dataset')
-    args.add_argument('--model_dir', default='./experiments/base_model'
-                      , help='Directory containing params.json')
-    args = args.parse_args()
-    return args
+args = argparse.ArgumentParser()
+args.add_argument('--input_dir', default='./data/from_kaggle'
+                , help='Directory containing dataset')
+args.add_argument('--model_dir', default='./experiments/base_model'
+                  , help='Directory containing params.json')
 
 # MAIN -------------------------------------------------------
 
-args = Parse_args()
+args = args.parse_args()
 
 # Set logger
 utils.set_logger(os.path.join(args.model_dir, 'train_dnn.log'))
@@ -299,9 +296,20 @@ params = utils.Params(json_path)
 
 seed_everything(seed=42)
 
-# SEED = [200, 201, 202, 203 ,204, 205, 206, 207, 208, 209]
-SEED = range(params.num_seeds) #[0, 1, 2, 3 ,4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# HyperParameters
+SEEDS = params.num_seeds
 NFOLDS = params.num_folds_dnn
+DEVICE              = ('cuda' if torch.cuda.is_available() else 'cpu')
+EPOCHS              = params.num_epochs # 24
+BATCH_SIZE          = params.batch_size # 128
+WEIGHT_DECAY = {'ALL_TARGETS': params.weight_decay_all
+              , 'SCORED_ONLY': params.weight_decay_scored}
+MAX_LR      = {'ALL_TARGETS': params.learning_rate, 'SCORED_ONLY': 3e-3}
+DIV_FACTOR  = {'ALL_TARGETS': 1e3, 'SCORED_ONLY': 1e2}
+PCT_START   = 0.1
+n_comp1     = params.ncompo_genes_dnn  # 600
+n_comp2     = params.ncompo_cells_dnn # 50 
+
 
 # load data 
 logging.info("Loading the datasets from {}".format(args.input_dir))  
@@ -326,27 +334,27 @@ feat_dic['cell'] = CELLS
 
 # sample norm 
 logging.info("Quantile normalization...")
-q2 = train_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.25).copy()
-q7 = train_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.75).copy()
+q2 = train_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+q7 = train_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
 qmean = (q2+q7)/2
 train_features[feat_dic['gene']] = (train_features[feat_dic['gene']].T - qmean.values).T
-q2 = test_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.25).copy()
-q7 = test_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.75).copy()
+q2 = test_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+q7 = test_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
 qmean = (q2+q7)/2
 test_features[feat_dic['gene']] = (test_features[feat_dic['gene']].T - qmean.values).T
 
-q2 = train_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.25).copy()
-q7 = train_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.72).copy()
+q2 = train_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+q7 = train_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
 qmean = (q2+q7)/2
 train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T - qmean.values).T
-qmean2 = train_features[feat_dic['cell']].abs().apply(np.quantile,axis = 1,q = 0.75).copy()+4
+qmean2 = train_features[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
 train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T / qmean2.values).T.copy()
 
-q2 = test_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.25).copy()
-q7 = test_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.72).copy()
+q2 = test_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+q7 = test_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
 qmean = (q2+q7)/2
 test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T - qmean.values).T
-qmean2 = test_features[feat_dic['cell']].abs().apply(np.quantile,axis = 1,q = 0.75).copy()+4
+qmean2 = test_features[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
 test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T / qmean2.values).T.copy()
 
 # remove ctl
@@ -374,7 +382,7 @@ vc2 = vc.loc[vc > 19].index
 feature_cols = []
 for key_i in feat_dic.keys():
     value_i = feat_dic[key_i]
-    print(key_i,len(value_i))
+    print(key_i, len(value_i))
     feature_cols += value_i
 len(feature_cols)
 feature_cols0 = dp(feature_cols)
@@ -383,9 +391,9 @@ oof = np.zeros((len(train), len(target_cols)))
 predictions = np.zeros((len(test), len(target_cols)))
 
 # Averaging on multiple SEEDS
-for seed in SEED:
+for seed in range(SEEDS):
 
-    logging.info("Seed {} out of {}".format(SEED.index(seed)+1, len(SEED)))
+    logging.info("Seed {} out of {}".format(seed+1, SEEDS))
     seed_everything(seed=seed)
     folds = train0.copy()
     feature_cols = dp(feature_cols0)
@@ -397,9 +405,9 @@ for seed in SEED:
     tmp = target2.groupby('drug_id')[target_cols].mean().loc[vc1]
     tmp_idx = tmp.index.tolist()
     tmp_idx.sort()
-    tmp_idx2 = random.sample(tmp_idx,len(tmp_idx))
+    tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
     tmp = tmp.loc[tmp_idx2]
-    for fold,(idxT,idxV) in enumerate(skf.split(tmp,tmp[target_cols])):
+    for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
         dd = {k:fold for k in tmp.index[idxV].values}
         dct1.update(dd)
 
@@ -408,14 +416,14 @@ for seed in SEED:
     tmp = target2.loc[target2.drug_id.isin(vc2)].reset_index(drop = True)
     tmp_idx = tmp.index.tolist()
     tmp_idx.sort()
-    tmp_idx2 = random.sample(tmp_idx,len(tmp_idx))
+    tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
     tmp = tmp.loc[tmp_idx2]
-    for fold,(idxT,idxV) in enumerate(skf.split(tmp,tmp[target_cols])):
+    for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
         dd = {k:fold for k in tmp.sig_id[idxV].values}
         dct2.update(dd)
 
     target2['kfold'] = target2.drug_id.map(dct1)
-    target2.loc[target2.kfold.isna(),'kfold'] = target2.loc[target2.kfold.isna(),'sig_id'].map(dct2)
+    target2.loc[target2.kfold.isna(), 'kfold'] = target2.loc[target2.kfold.isna(), 'sig_id'].map(dct2)
     target2.kfold = target2.kfold.astype(int)
 
     folds['kfold'] = target2['kfold'].copy()
@@ -423,48 +431,34 @@ for seed in SEED:
     train = folds.copy()
     test_ = test.copy()
 
-    # HyperParameters
-    DEVICE              = ('cuda' if torch.cuda.is_available() else 'cpu')
-    EPOCHS              = params.num_epochs # 24
-    BATCH_SIZE          = params.batch_size # 128
-
-    # HyperParameters
-    #WEIGHT_DECAY = {'ALL_TARGETS': 1e-5, 'SCORED_ONLY': 3e-6}
-    WEIGHT_DECAY = {'ALL_TARGETS': params.weight_decay_all
-                  , 'SCORED_ONLY': params.weight_decay_scored}
-    MAX_LR      = {'ALL_TARGETS': 1e-2, 'SCORED_ONLY': 3e-3}
-    DIV_FACTOR  = {'ALL_TARGETS': 1e3, 'SCORED_ONLY': 1e2}
-    PCT_START   = 0.1
-
-    n_comp1 = params.ncompo_genes_dnn  # 600
-    n_comp2 = params.ncompo_cells_dnn # 50 
-
     num_targets = len(target_cols)
     num_aux_targets = len(aux_target_cols)
     num_all_targets = len(all_target_cols)
     hidden_size=4096
 
-    tar_freq = np.array([np.min(list(g_table(train[target_cols].iloc[:,i]).values())) for i in range(len(target_cols))])
+    tar_freq = np.array([np.min(list(g_table(train[target_cols].iloc[:, i]).values())) 
+                        for i in range(len(target_cols))])
     tar_weight0 = np.array([np.log(i+100) for i in tar_freq])
     tar_weight0_min = dp(np.min(tar_weight0))
     tar_weight = tar_weight0_min/tar_weight0
     pos_weight = torch.tensor(tar_weight).to(DEVICE)
 
-    tar_freq = np.array([np.min(list(g_table(train[all_target_cols].iloc[:,i]).values())) for i in range(len(all_target_cols))])
+    tar_freq = np.array([np.min(list(g_table(train[all_target_cols].iloc[:, i]).values())) 
+                        for i in range(len(all_target_cols))])
     tar_weight0 = np.array([np.log(i+100) for i in tar_freq])
     tar_weight0_min = dp(np.min(tar_weight0))
     pos_weight_all = tar_weight0_min/tar_weight0
     pos_weight_all = torch.tensor(pos_weight_all).to(DEVICE)
 
     oof_, predictions_ = run_k_fold(NFOLDS, seed)
-    oof += oof_ / len(SEED)
-    predictions += predictions_ / len(SEED)
+    oof += oof_ / SEEDS
+    predictions += predictions_ / SEEDS
     
     oof_tmp = dp(oof)
-    oof_tmp = oof_tmp * len(SEED) / (SEED.index(seed)+1)
-    sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
+    oof_tmp = oof_tmp * SEEDS / (seed+1)
+    sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:, i], oof_tmp[:, i]) for i in range(len(target_cols))])
     
-logging.info(np.mean([log_loss(train[target_cols].iloc[:,i],oof[:,i]) for i in range(len(target_cols))]))
+logging.info(np.mean([log_loss(train[target_cols].iloc[:, i], oof[:, i]) for i in range(len(target_cols))]))
 
 train0[target_cols] = oof
 test[target_cols] = predictions
@@ -472,6 +466,6 @@ test[target_cols] = predictions
 # save predictions and metrics
 train0.to_csv(os.path.join(args.model_dir, 'dnn_train.csv'), index=False)
 test.to_csv(os.path.join(args.model_dir, 'dnn_test.csv'), index=False)
-pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'dnn_sc_dic.csv'))
+pd.DataFrame(sc_dic, index=['sc']).to_csv(os.path.join(args.model_dir, 'dnn_sc_dic.csv'))
 
 logging.info("done!")
