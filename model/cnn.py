@@ -5,15 +5,15 @@ import torch.optim as optim
 from torch.nn.modules.loss import _WeightedLoss
 
 class SmoothBCEwLogits(_WeightedLoss):
-    def __init__(self, weight=None, reduction='mean', smoothing=0.0, pos_weight = None):
-        super().__init__(weight=weight, reduction=reduction)
+    def __init__(self, weight = None, reduction = 'mean', smoothing = 0.0, pos_weight = None):
+        super().__init__(weight = weight, reduction = reduction)
         self.smoothing = smoothing
         self.weight = weight
         self.reduction = reduction
         self.pos_weight = pos_weight
 
     @staticmethod
-    def _smooth(targets:torch.Tensor, n_labels:int, smoothing=0.0):
+    def _smooth(targets:torch.Tensor, n_labels:int, smoothing = 0.0):
         assert 0 <= smoothing < 1
         with torch.no_grad():
             targets = targets * (1.0 - smoothing) + 0.5 * smoothing
@@ -40,8 +40,8 @@ class TrainDataset:
 
     def __getitem__(self, idx):
         dct = {
-            'x' : torch.tensor(self.features[idx, :], dtype=torch.float),
-            'y' : torch.tensor(self.targets[idx, :], dtype=torch.float)            
+            'x' : torch.tensor(self.features[idx, :], dtype = torch.float), 
+            'y' : torch.tensor(self.targets[idx, :], dtype = torch.float)            
         }
         return dct
 
@@ -54,14 +54,27 @@ class TestDataset:
 
     def __getitem__(self, idx):
         dct = {
-            'x' : torch.tensor(self.features[idx, :], dtype=torch.float)
+            'x' : torch.tensor(self.features[idx, :], dtype = torch.float)
         }
         return dct
 
 class Model(nn.Module):
-    def __init__(self, num_features, num_targets, hidden_size):
+    """
+    This defines the CNN model. Images have three channels 1,2,3. 
+    Features and targets get reshaped into the three channels 
+    on the basis of a pre-specified hidden size hyper-parameter.
+    Batch-norm and dropout layers.  
+    
+    Args:
+            params: (Params) contains num_features, num_targets, hidden_size
+    """
+    def __init__(self, params):
         super(Model, self).__init__()
-        cha_1 = 256
+        num_features = params.num_features 
+        num_targets = params.num_targets 
+        hidden_size = params.hidden_size
+        # prob_dropout = params.prob_dropout
+        cha_1 = 256 # three channels
         cha_2 = 512
         cha_3 = 512
 
@@ -82,23 +95,23 @@ class Model(nn.Module):
 
         self.batch_norm_c1 = nn.BatchNorm1d(cha_1)
         self.dropout_c1 = nn.Dropout(0.1)
-        self.conv1 = nn.utils.weight_norm(nn.Conv1d(cha_1,cha_2, kernel_size = 5, stride = 1, padding=2,  bias=False),dim=None)
+        self.conv1 = nn.utils.weight_norm(nn.Conv1d(cha_1, cha_2, kernel_size = 5, stride = 1, padding = 2,  bias = False), dim = None)
 
         self.ave_po_c1 = nn.AdaptiveAvgPool1d(output_size = cha_po_1)
 
         self.batch_norm_c2 = nn.BatchNorm1d(cha_2)
         self.dropout_c2 = nn.Dropout(0.1)
-        self.conv2 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_2, kernel_size = 3, stride = 1, padding=1, bias=True),dim=None)
+        self.conv2 = nn.utils.weight_norm(nn.Conv1d(cha_2, cha_2, kernel_size = 3, stride = 1, padding = 1, bias = True), dim = None)
 
         self.batch_norm_c2_1 = nn.BatchNorm1d(cha_2)
         self.dropout_c2_1 = nn.Dropout(0.3)
-        self.conv2_1 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_2, kernel_size = 3, stride = 1, padding=1, bias=True),dim=None)
+        self.conv2_1 = nn.utils.weight_norm(nn.Conv1d(cha_2, cha_2, kernel_size = 3, stride = 1, padding = 1, bias = True), dim = None)
 
         self.batch_norm_c2_2 = nn.BatchNorm1d(cha_2)
         self.dropout_c2_2 = nn.Dropout(0.2)
-        self.conv2_2 = nn.utils.weight_norm(nn.Conv1d(cha_2,cha_3, kernel_size = 5, stride = 1, padding=2, bias=True),dim=None)
+        self.conv2_2 = nn.utils.weight_norm(nn.Conv1d(cha_2, cha_3, kernel_size = 5, stride = 1, padding = 2, bias = True), dim = None)
 
-        self.max_po_c2 = nn.MaxPool1d(kernel_size=4, stride=2, padding=1)
+        self.max_po_c2 = nn.MaxPool1d(kernel_size = 4, stride = 2, padding = 1)
 
         self.flt = nn.Flatten()
 
@@ -110,9 +123,9 @@ class Model(nn.Module):
 
         x = self.batch_norm1(x) if x.size()[0] > 1 else x 
         x = self.dropout1(x)
-        x = F.celu(self.dense1(x), alpha=0.06)
+        x = F.celu(self.dense1(x), alpha = 0.06)
 
-        x = x.reshape(x.shape[0],self.cha_1,
+        x = x.reshape(x.shape[0], self.cha_1, 
                       self.cha_1_reshape)
 
         x = self.batch_norm_c1(x) if x.size()[0] > 1 else x 
