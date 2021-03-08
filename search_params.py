@@ -28,9 +28,9 @@ def launch_training_job(parent_dir, input_dir, train_file, job_name, params):
     params.save(json_path)
 
     # Launch training with this config
-    cmd = "{python} {train} --model_dir={model_dir} --input_dir {input_dir}".format(python=PYTHON, train=train_file
-                                                                                    , model_dir=model_dir
-                                                                                    , input_dir=input_dir)
+    fmt = "{python} {train} --model_dir={model_dir} --input_dir {input_dir}"
+    cmd = fmt.format(python=PYTHON, train=train_file, model_dir=model_dir, input_dir=input_dir)
+
     print(cmd)
     check_call(cmd, shell=True)
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     
     # Model files
     #files = ['1d-cnn-train.py', 'dnn-train.py', 'tabnet-train.py']
-    files = ['tabnet-train.py']
+    files = ['1d-cnn-train.py']
 
     # Perform hypersearch over one parameter
     learning_rates = [1e-4, 1e-3, 1e-2]

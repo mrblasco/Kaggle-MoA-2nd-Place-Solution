@@ -314,7 +314,7 @@ sc_dic = {}
 train_features          = pd.read_csv(os.path.join(args.input_dir, 'train_features.csv'))
 train_targets_scored    = pd.read_csv(os.path.join(args.input_dir, 'train_targets_scored.csv'))
 train_targets_nonscored = pd.read_csv(os.path.join(args.input_dir, 'train_targets_nonscored.csv'))
-test_features           = pd.read_csv(os.path.join(args.input_dir, 'test_features_calibr.csv'))
+test_features           = pd.read_csv(os.path.join(args.input_dir, 'test_features.csv'))
 #sample_submission       = pd.read_csv(os.path.join(args.input_dir, 'sample_submission.csv'))
 train_drug              = pd.read_csv(os.path.join(args.input_dir, 'train_drug.csv'))
 
