@@ -463,7 +463,7 @@ for seed in range(params.num_seeds):
 
     # Run k-fold 
     oof_, predictions_ = run_k_fold(params.num_folds, seed)
-    oof += oof_ / params.num_seeds)
+    oof += oof_ / params.num_seeds
     predictions += predictions_ / params.num_seeds
     
     oof_tmp = dp(oof)
