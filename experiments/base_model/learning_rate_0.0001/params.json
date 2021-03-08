@@ -1,0 +1,20 @@
+{
+    "ncompo_genes": 50,
+    "ncompo_cells": 15,
+    "num_epochs": 23,
+    "batch_size": 128,
+    "num_seeds": 4,
+    "learning_rate": 0.0001,
+    "weight_decay": 1e-05,
+    "num_folds": 5,
+    "early_stopping_steps": 10,
+    "early_stop": "False",
+    "weight_decay_all": 1e-05,
+    "weight_decay_scored": 3e-06,
+    "num_folds_dnn": 7,
+    "ncompo_genes_dnn": 600,
+    "ncompo_cells_dnn": 50,
+    "num_folds_tabnet": 5,
+    "ncompo_genes_tabnet": 600,
+    "ncompo_cells_tabnet": 50
+}
