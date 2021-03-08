@@ -1,14 +1,14 @@
 {
       "ncompo_genes" : 50
     , "ncompo_cells" : 15
-    , "num_epochs" : 23
-    , "batch_size" : 128
     , "hidden_size": 4096
+    , "batch_size" : 128
     , "smoothing": 0.001
-    , "num_seeds": 3
+    , "num_seeds": 5
+    , "num_folds" : 5
+    , "num_epochs" : 50
     , "learning_rate" : 0.001
     , "weight_decay" : 0.00001
-    , "num_folds" : 5
     , "early_stopping_steps" : 10
     , "weight_decay_all" : 0.00001
     , "weight_decay_scored" : 0.000003

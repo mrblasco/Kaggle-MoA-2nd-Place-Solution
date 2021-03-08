@@ -48,20 +48,24 @@ if __name__ == "__main__":
     # Perform hypersearch over one parameter
     learning_rates = [1e-4, 1e-3, 1e-2]
     ncompo_genes_values = [50, 250, 500]
+    smoothing_values = [0, 0.001, 0.005]
 
     for train_file in files:
-    
-      for ncompo_genes in ncompo_genes_values:
-          params.ncompo_genes = ncompo_genes
-          job_name = "ncompo_genes_{}".format(ncompo_genes)
-          launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
 
+      for smoothing in smoothing_values:
+          params.smoothing = smoothing
+          job_name = "smoothing_{}".format(smoothing)
+          launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
+    
       if (0): 
+        for ncompo_genes in ncompo_genes_values:
+            params.ncompo_genes = ncompo_genes
+            job_name = "ncompo_genes_{}".format(ncompo_genes)
+            launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
+
         for learning_rate in learning_rates:
             params.learning_rate = learning_rate
             job_name = "learning_rate_{}".format(learning_rate)
             launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
-
-
 
 
