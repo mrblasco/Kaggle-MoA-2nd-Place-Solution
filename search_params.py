@@ -47,13 +47,21 @@ if __name__ == "__main__":
 
     # Perform hypersearch over one parameter
     learning_rates = [1e-4, 1e-3, 1e-2]
+    ncompo_genes_values = [50, 250, 500]
 
     for train_file in files:
     
-      for learning_rate in learning_rates:
-          # Modify the relevant parameter in params
-          params.learning_rate = learning_rate
-
-          # Launch job (name has to be unique)
-          job_name = "learning_rate_{}".format(learning_rate)
+      for ncompo_genes in ncompo_genes_values:
+          params.ncompo_genes = ncompo_genes
+          job_name = "ncompo_genes_{}".format(ncompo_genes)
           launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
+
+      if (0): 
+        for learning_rate in learning_rates:
+            params.learning_rate = learning_rate
+            job_name = "learning_rate_{}".format(learning_rate)
+            launch_training_job(args.parent_dir, args.input_dir, train_file, job_name, params)
+
+
+
+
