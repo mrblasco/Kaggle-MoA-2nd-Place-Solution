@@ -49,10 +49,9 @@ class SmoothBCEwLogits(_WeightedLoss):
         return targets
 
     def forward(self, inputs, targets):
-        targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1),
+        targets = SmoothBCEwLogits._smooth(targets, inputs.size(-1), 
             self.smoothing)
-        loss = F.binary_cross_entropy_with_logits(inputs, targets,self.weight,
-                                                  pos_weight = pos_weight)
+        loss = F.binary_cross_entropy_with_logits(inputs, targets, self.weight, pos_weight = pos_weight)
         if  self.reduction == 'sum':
             loss = loss.sum()
         elif  self.reduction == 'mean':
@@ -77,44 +76,44 @@ def run_training(fold, seed):
     #------------ norm --------------
     col_num = list(set(feat_dic['gene'] + feat_dic['cell']) & set(feature_cols))
     col_num.sort()
-    x_train[col_num],ss = norm_fit(x_train[col_num],True,'quan')
-    x_valid[col_num]    = norm_tra(x_valid[col_num],ss)
-    x_test[col_num]     = norm_tra(x_test[col_num],ss)
+    x_train[col_num], ss = norm_fit(x_train[col_num], True, 'quan')
+    x_valid[col_num]    = norm_tra(x_valid[col_num], ss)
+    x_test[col_num]     = norm_tra(x_test[col_num], ss)
 
     #------------ pca --------------
-    def pca_pre(tr,va,te,
-                n_comp,feat_raw,feat_new):
+    def pca_pre(tr, va, te, 
+                n_comp, feat_raw, feat_new):
         pca = PCA(n_components=n_comp, random_state=42)
-        tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]),columns=feat_new)
-        va2 = pd.DataFrame(pca.transform(va[feat_raw]),columns=feat_new)
-        te2 = pd.DataFrame(pca.transform(te[feat_raw]),columns=feat_new)
-        return(tr2,va2,te2)
+        tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]), columns=feat_new)
+        va2 = pd.DataFrame(pca.transform(va[feat_raw]), columns=feat_new)
+        te2 = pd.DataFrame(pca.transform(te[feat_raw]), columns=feat_new)
+        return(tr2, va2, te2)
 
     pca_feat_g = [f'pca_G-{i}' for i in range(n_comp1)]
     feat_dic['pca_g'] = pca_feat_g
-    x_tr_g_pca,x_va_g_pca,x_te_g_pca = pca_pre(x_train,x_valid,x_test,
-                                               n_comp1,feat_dic['gene'],pca_feat_g)
-    x_train = pd.concat([x_train,x_tr_g_pca],axis = 1)
-    x_valid = pd.concat([x_valid,x_va_g_pca],axis = 1)
-    x_test  = pd.concat([x_test,x_te_g_pca],axis = 1)
+    x_tr_g_pca, x_va_g_pca, x_te_g_pca = pca_pre(x_train, x_valid, x_test, 
+                                               n_comp1, feat_dic['gene'], pca_feat_g)
+    x_train = pd.concat([x_train, x_tr_g_pca], axis = 1)
+    x_valid = pd.concat([x_valid, x_va_g_pca], axis = 1)
+    x_test  = pd.concat([x_test, x_te_g_pca], axis = 1)
 
     pca_feat_g = [f'pca_C-{i}' for i in range(n_comp2)]
     feat_dic['pca_c'] = pca_feat_g
-    x_tr_c_pca,x_va_c_pca,x_te_c_pca = pca_pre(x_train,x_valid,x_test,
-                                               n_comp2,feat_dic['cell'],pca_feat_g)
-    x_train = pd.concat([x_train,x_tr_c_pca],axis = 1)
-    x_valid = pd.concat([x_valid,x_va_c_pca],axis = 1)
-    x_test  = pd.concat([x_test,x_te_c_pca], axis = 1)
+    x_tr_c_pca, x_va_c_pca, x_te_c_pca = pca_pre(x_train, x_valid, x_test, 
+                                               n_comp2, feat_dic['cell'], pca_feat_g)
+    x_train = pd.concat([x_train, x_tr_c_pca], axis = 1)
+    x_valid = pd.concat([x_valid, x_va_c_pca], axis = 1)
+    x_test  = pd.concat([x_test, x_te_c_pca], axis = 1)
 
     #------------ var --------------
     from sklearn.feature_selection import VarianceThreshold
     var_thresh = VarianceThreshold(0.8)
     var_thresh.fit(x_train)
-    x_train = x_train.loc[:,var_thresh.variances_ > 0.8]
-    x_valid = x_valid.loc[:,var_thresh.variances_ > 0.8]
-    x_test  = x_test.loc[:,var_thresh.variances_ > 0.8]
+    x_train = x_train.loc[:, var_thresh.variances_ > 0.8]
+    x_valid = x_valid.loc[:, var_thresh.variances_ > 0.8]
+    x_test  = x_test.loc[:, var_thresh.variances_ > 0.8]
 
-    x_train,x_valid,x_test = x_train.values,x_valid.values,x_test.values
+    x_train, x_valid, x_test = x_train.values, x_valid.values, x_test.values
 
     class LogitsLogLoss(Metric):
         """
@@ -153,12 +152,12 @@ def run_training(fold, seed):
         , n_independent = 2
         , n_shared = 1
         , optimizer_fn = optim.Adam
-        , optimizer_params = dict(lr = LEARNING, weight_decay = WEIGHT_DECAY)  # 2e-2,1e-5
+        , optimizer_params = dict(lr = params.learning_rate, weight_decay = params.weight_decay)  # 2e-2, 1e-5
         , mask_type = "entmax"
         , scheduler_params = dict(mode = "min"
-            , patience = 5
-            , min_lr = LEARNING #1e-5
-            , factor = 0.9)
+                                  , patience = 5
+                                  , min_lr = params.learning_rate #1e-5
+                                  , factor = 0.9)
         , scheduler_fn = ReduceLROnPlateau
         , seed = seed
         , verbose = 10
@@ -167,17 +166,17 @@ def run_training(fold, seed):
     ### Fit ###
     model = TabNetRegressor(**tabnet_params)
     model.fit(
-        X_train = x_train,
-        y_train = y_train,
-        eval_set = [(x_valid, y_valid)],
-        eval_name = ["val"],
-        eval_metric = ["logits_ll"],
-        max_epochs = MAX_EPOCH,
-        patience = 40,
+        X_train = x_train, 
+        y_train = y_train, 
+        eval_set = [(x_valid, y_valid)], 
+        eval_name = ["val"], 
+        eval_metric = ["logits_ll"], 
+        max_epochs = MAX_EPOCH, 
+        patience = 40, 
         batch_size = 1024, 
-        virtual_batch_size = 32,
-        num_workers = 1,
-        drop_last = False,
+        virtual_batch_size = 32, 
+        num_workers = 1, 
+        drop_last = False, 
         loss_fn = SmoothBCEwLogits(smoothing=1e-4) # wgt_bce
     )
 
@@ -191,20 +190,23 @@ def run_training(fold, seed):
 
     return oof, predictions
 
-def run_k_fold(NFOLDS, seed):
+def run_k_fold(num_folds, seed):
     oof = np.zeros((len(train), len(target_cols)))
     predictions = np.zeros((len(test), len(target_cols)))
 
-    for fold in range(NFOLDS):
-        logging.info("Fold {} out of {}".format(fold+1,NFOLDS))
+    for fold in range(num_folds):
+        logging.info("Fold {} out of {}".format(fold+1, params.num_folds))
         oof_, pred_ = run_training(fold, seed)
 
-        predictions += pred_ / NFOLDS
+        predictions += pred_ / params.num_folds
         oof += oof_
 
     return oof, predictions
 
 def fe_stats(train, test):
+    """
+    Add statistical features 
+    """
     features_g = GENES
     features_c = CELLS
 
@@ -252,24 +254,58 @@ def fe_stats(train, test):
     feat_stat.sort()
     return train, test, feat_stat
 
-def norm_fit(df_1,saveM = True, sc_name = 'zsco'):   
-    from sklearn.preprocessing import StandardScaler,MinMaxScaler,MaxAbsScaler,RobustScaler,Normalizer,QuantileTransformer,PowerTransformer
-    ss_1_dic = {'zsco':StandardScaler(),
-                'mima':MinMaxScaler(),
+def qnorm(train_f, test_f):
+  """
+  Quantile normalization 
+  """
+  # train = gene
+  q2 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['gene']] = (train_f[feat_dic['gene']].T - qmean.values).T
+  
+  # test = gene
+  q2 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['gene']] = (test_f[feat_dic['gene']].T - qmean.values).T
+
+  # train = cell 
+  q2 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = train_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T / qmean2.values).T.copy()
+
+  # test = cell 
+  q2 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = test_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T / qmean2.values).T.copy()
+
+  return train_f, test_f
+
+def norm_fit(df_1, saveM = True, sc_name = 'zsco'):   
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler, Normalizer, QuantileTransformer, PowerTransformer
+    ss_1_dic = {'zsco':StandardScaler(), 
+                'mima':MinMaxScaler(), 
                 'maxb':MaxAbsScaler(), 
-                'robu':RobustScaler(),
+                'robu':RobustScaler(), 
                 'norm':Normalizer(), 
-                'quan':QuantileTransformer(n_quantiles=100,random_state=0, output_distribution="normal"),
+                'quan':QuantileTransformer(n_quantiles=100, random_state=0, output_distribution="normal"), 
                 'powe':PowerTransformer()}
     ss_1 = ss_1_dic[sc_name]
-    df_2 = pd.DataFrame(ss_1.fit_transform(df_1),index = df_1.index,columns = df_1.columns)
+    df_2 = pd.DataFrame(ss_1.fit_transform(df_1), index = df_1.index, columns = df_1.columns)
     if saveM == False:
         return(df_2)
     else:
-        return(df_2,ss_1)
+        return(df_2, ss_1)
 
-def norm_tra(df_1,ss_x):
-    df_2 = pd.DataFrame(ss_x.transform(df_1),index = df_1.index,columns = df_1.columns)
+def norm_tra(df_1, ss_x):
+    df_2 = pd.DataFrame(ss_x.transform(df_1), index = df_1.index, columns = df_1.columns)
     return(df_2)
 
 def g_table(list1):
@@ -315,14 +351,9 @@ if __name__ == '__main__':
   seed_everything(seed=42)
 
   # Set HyperParameters
-  SEEDS = params.num_seeds 
   DEVICE  = ('cuda' if torch.cuda.is_available() else 'cpu')
-  NFOLDS  = params.num_folds_tabnet # 5    
   n_comp1 = params.ncompo_genes_tabnet #600
   n_comp2 = params.ncompo_cells_tabnet #50
-  LEARNING = params.learning_rate
-  WEIGHT_DECAY = params.weight_decay 
-
 
   # load data 
   logging.info("Loading the datasets from {}".format(args.input_dir))  
@@ -341,50 +372,25 @@ if __name__ == '__main__':
   feat_dic['gene'] = GENES
   feat_dic['cell'] = CELLS
 
-  # sample norm
   logging.info("Quantile normalization...")
-  q2 = train_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.25).copy()
-  q7 = train_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.75).copy()
-  qmean = (q2+q7)/2
-  train_features[feat_dic['gene']] = (train_features[feat_dic['gene']].T - qmean.values).T
+  train_features, test_features = qnorm(train_features, test_features)
 
-  q2 = test_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.25).copy()
-  q7 = test_features[feat_dic['gene']].apply(np.quantile,axis = 1,q = 0.75).copy()
-  qmean = (q2+q7)/2
-  test_features[feat_dic['gene']] = (test_features[feat_dic['gene']].T - qmean.values).T
+  logging.info("Add statistical features...")
+  train_features, test_features, feat_stat = fe_stats(train_features, test_features)
+  feat_dic['stat'] = feat_stat 
 
-  q2 = train_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.25).copy()
-  q7 = train_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.72).copy()
-  qmean = (q2+q7)/2
-  train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T - qmean.values).T
-  qmean2 = train_features[feat_dic['cell']].abs().apply(np.quantile,axis = 1,q = 0.75).copy()+4
-  train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T / qmean2.values).T.copy()
-
-  q2 = test_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.25).copy()
-  q7 = test_features[feat_dic['cell']].apply(np.quantile,axis = 1,q = 0.72).copy()
-  qmean = (q2+q7)/2
-  test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T - qmean.values).T
-  qmean2 = test_features[feat_dic['cell']].abs().apply(np.quantile,axis = 1,q = 0.75).copy()+4
-  test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T / qmean2.values).T.copy()
-
-  logging.info("Add feature stats...")
-  train_features, test_features, feat_stat = fe_stats(train_features,test_features)
-  feat_dic['stat'] = feat_stat
-
-  # remove ctl
-  logging.info("Drop control samples...")
+  logging.info("Merge and drop control samples...")
   train = train_features.merge(train_targets_scored, on='sig_id')
   train = train[train['cp_type']!='ctl_vehicle'].reset_index(drop=True)
   test = test_features[test_features['cp_type']!='ctl_vehicle'].reset_index(drop=True)
-
   target = train[train_targets_scored.columns]
-
   train0 = train.drop('cp_type', axis=1)
   test = test.drop('cp_type', axis=1)
 
+  # List with target names 
   target_cols = target.drop('sig_id', axis=1).columns.values.tolist()
 
-  # drug ids
+  # Target signatures merge with drug ID
   tar_sig = target['sig_id'].tolist()
   train_drug = train_drug.loc[[i in tar_sig for i in train_drug['sig_id']]]
   target = target.merge(train_drug, on='sig_id', how='left') 
@@ -397,7 +403,7 @@ if __name__ == '__main__':
   feature_cols = []
   for key_i in feat_dic.keys():
       value_i = feat_dic[key_i]
-      print(key_i,len(value_i))
+      print(key_i, len(value_i))
       feature_cols += value_i
   len(feature_cols)
   feature_cols0 = dp(feature_cols)
@@ -405,47 +411,50 @@ if __name__ == '__main__':
   oof = np.zeros((len(train), len(target_cols)))
   predictions = np.zeros((len(test), len(target_cols)))
 
-  # Averaging on multiple SEEDS
-  for seed in range(SEEDS):
-      logging.info("Seed {} out of {}".format(seed+1, SEEDS))
+  # Averaging on multiple seeds
+  for seed in range(params.num_seeds):
+      
       seed_everything(seed=seed)
+      
       folds = train0.copy()
       feature_cols = dp(feature_cols0)
     
       # kfold - leave drug out
       target2 = target.copy()
       dct1 = {}; dct2 = {}
-      skf = MultilabelStratifiedKFold(n_splits = NFOLDS) # , shuffle = True, random_state = seed
+      skf = MultilabelStratifiedKFold(n_splits = params.num_folds) # , shuffle = True, random_state = seed
       tmp = target2.groupby('drug_id')[target_cols].mean().loc[vc1]
       tmp_idx = tmp.index.tolist()
       tmp_idx.sort()
-      tmp_idx2 = random.sample(tmp_idx,len(tmp_idx))
+      tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
       tmp = tmp.loc[tmp_idx2]
-      for fold,(idxT,idxV) in enumerate(skf.split(tmp,tmp[target_cols])):
+      for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
           dd = {k:fold for k in tmp.index[idxV].values}
           dct1.update(dd)
 
       # STRATIFY DRUGS MORE THAN 18X
-      skf = MultilabelStratifiedKFold(n_splits = NFOLDS) # , shuffle = True, random_state = seed
+      skf = MultilabelStratifiedKFold(n_splits = params.num_folds) # , shuffle = True, random_state = seed
       tmp = target2.loc[target2.drug_id.isin(vc2)].reset_index(drop = True)
       tmp_idx = tmp.index.tolist()
       tmp_idx.sort()
-      tmp_idx2 = random.sample(tmp_idx,len(tmp_idx))
+      tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
       tmp = tmp.loc[tmp_idx2]
-      for fold,(idxT,idxV) in enumerate(skf.split(tmp,tmp[target_cols])):
+      for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
           dd = {k:fold for k in tmp.sig_id[idxV].values}
           dct2.update(dd)
 
       target2['kfold'] = target2.drug_id.map(dct1)
-      target2.loc[target2.kfold.isna(),'kfold'] = target2.loc[target2.kfold.isna(),'sig_id'].map(dct2)
+      target2.loc[target2.kfold.isna(), 'kfold'] = target2.loc[target2.kfold.isna(), 'sig_id'].map(dct2)
       target2.kfold = target2.kfold.astype(int)
 
       folds['kfold'] = target2['kfold'].copy()
 
+      # train and test 
       train = folds.copy()
       test_ = test.copy()
  
-      tar_freq = np.array([np.min(list(g_table(train[target_cols].iloc[:,i]).values())) for i in range(len(target_cols))])
+      # compute positive weights  
+      tar_freq = np.array([np.min(list(g_table(train[target_cols].iloc[:, i]).values())) for i in range(len(target_cols))])
       tar_weight0 = np.array([np.log(i+100) for i in tar_freq])
       tar_weight0_min = dp(np.min(tar_weight0))
       tar_weight = tar_weight0_min/tar_weight0
@@ -454,15 +463,17 @@ if __name__ == '__main__':
       wgt_bce = dp(F.binary_cross_entropy_with_logits)
       wgt_bce.__defaults__ = (None, None, None, 'mean', pos_weight)
     
-      oof_, predictions_ = run_k_fold(NFOLDS, seed)
-      oof += oof_ / SEEDS
-      predictions += predictions_ / SEEDS
+      # Run k fold 
+      oof_, predictions_ = run_k_fold(params.num_folds, seed)
+      oof += oof_ / params.num_seeds
+      predictions += predictions_ / params.num_seeds
 
+      # Compute metrics
       oof_tmp = dp(oof)
-      oof_tmp = oof_tmp * SEEDS / (seed+1)
-      sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:,i],oof_tmp[:,i]) for i in range(len(target_cols))])
+      oof_tmp = oof_tmp * params.num_seeds / (seed+1)
+      sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:, i], oof_tmp[:, i]) for i in range(len(target_cols))])
 
-  logging.info(np.mean([log_loss(train[target_cols].iloc[:,i], oof[:,i]) for i in range(len(target_cols))]))
+  logging.info(np.mean([log_loss(train[target_cols].iloc[:, i], oof[:, i]) for i in range(len(target_cols))]))
   
   train0[target_cols] = oof
   test[target_cols] = predictions
@@ -470,8 +481,7 @@ if __name__ == '__main__':
   # save predictions and metrics
   train0.to_csv(os.path.join(args.model_dir, 'tabnet_train.csv'), index=False)
   test.to_csv(os.path.join(args.model_dir, 'tabnet_test.csv'), index=False)
-  pd.DataFrame(sc_dic,index=['sc']).to_csv(os.path.join(args.model_dir, 'tabnet_sc_dic.csv'))
-
+  pd.DataFrame(sc_dic, index=['sc']).to_csv(os.path.join(args.model_dir, 'tabnet_sc_dic.csv'))
   logging.info("done!")
 
 

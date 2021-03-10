@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.modules.loss import _WeightedLoss
 from torch.utils.data import DataLoader
+# from torch.utils.tensorboard import SummaryWriter
 
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 
@@ -193,8 +194,8 @@ def run_training(fold, seed):
                               , weight_decay = params.weight_decay
                               )
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer = optimizer
-                                            , pct_start = 0.1
-                                            , div_factor = 1e3
+                                            , pct_start = 0.1   #  default = 0.3
+                                            , div_factor = 1e3  # default = 25
                                             , max_lr = 1e-2
                                             , epochs = params.num_epochs
                                             , steps_per_epoch = len(trainloader)
@@ -211,7 +212,8 @@ def run_training(fold, seed):
 
         train_loss = train_fn(model, optimizer, scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
-        logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}")
+        #logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}")
+        logging.info(f" {seed}, {fold}, {epoch}, {train_loss}, {valid_loss}")
         
         if valid_loss < best_loss:
             best_loss = valid_loss
@@ -264,6 +266,40 @@ def norm_tra(df_1, ss_x):
     df_2 = pd.DataFrame(ss_x.transform(df_1), index = df_1.index, columns = df_1.columns)
     return(df_2)
 
+def qnorm(train_f, test_f):
+  """
+  Quantile normalization 
+  """
+  # train = gene
+  q2 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['gene']] = (train_f[feat_dic['gene']].T - qmean.values).T
+  
+  # test = gene
+  q2 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['gene']] = (test_f[feat_dic['gene']].T - qmean.values).T
+
+  # train = cell 
+  q2 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = train_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T / qmean2.values).T.copy()
+
+  # test = cell 
+  q2 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = test_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T / qmean2.values).T.copy()
+
+  return train_f, test_f
+
 def g_table(list1):
     table_dic = {}
     for i in list1:
@@ -288,12 +324,25 @@ def pca_pre(tr, va, te, n_comp, feat_raw, feat_new):
     te2 = pd.DataFrame(pca.transform(te[feat_raw]), columns = feat_new)
     return(tr2, va2, te2)
 
+def select_ns_targets (q_n_cut = 0.9): 
+  nonctr_id = train_features.loc[train_features['cp_type']!= 'ctl_vehicle', 'sig_id'].tolist()
+  tmp_con1 = [i in nonctr_id for i in train_targets_scored['sig_id']]
+  mat_cor = pd.DataFrame(np.corrcoef(train_targets_scored.drop('sig_id', axis = 1)[tmp_con1].T
+                        , train_targets_nonscored.drop('sig_id', axis = 1)[tmp_con1].T))
+  mat_cor2 = mat_cor.iloc[(train_targets_scored.shape[1] - 1):, 0:train_targets_scored.shape[1]-1]
+  mat_cor2.index = target_nonsc_cols
+  mat_cor2.columns = target_cols
+  mat_cor2 = mat_cor2.dropna()
+  mat_cor2_max = mat_cor2.abs().max(axis = 1)
+  out = mat_cor2_max[mat_cor2_max > np.quantile(mat_cor2_max, q_n_cut)].index.tolist()
+  return out
+
+
 args = argparse.ArgumentParser()
 args.add_argument('--input_dir', default = './data/from_kaggle', help = 'Directory containing dataset')
 args.add_argument('--model_dir', default = './experiments/base_model', help = 'Directory containing params.json')
 
 # MAIN -------------------------------------------------------
-
 args = args.parse_args()
 
 # Set logger
@@ -308,9 +357,12 @@ params = utils.Params(json_path)
 seed_everything(seed = 42)
 SEED = range(params.num_seeds)
 
-# load data 
-logging.info("Loading the datasets from {}".format(args.input_dir))  
+# Scoring dictionary
 sc_dic = {}
+
+logging.info("Loading datasets from {}".format(args.input_dir))  
+
+# load data 
 train_features          = pd.read_csv(os.path.join(args.input_dir, 'train_features.csv'))
 train_targets_scored    = pd.read_csv(os.path.join(args.input_dir, 'train_targets_scored.csv'))
 train_targets_nonscored = pd.read_csv(os.path.join(args.input_dir, 'train_targets_nonscored.csv'))
@@ -322,57 +374,21 @@ train_drug              = pd.read_csv(os.path.join(args.input_dir, 'train_drug.c
 target_cols = train_targets_scored.drop('sig_id', axis = 1).columns.values.tolist()
 target_nonsc_cols = train_targets_nonscored.drop('sig_id', axis = 1).columns.values.tolist()
 
-# Select non-scored targets 
-nonctr_id = train_features.loc[train_features['cp_type']!= 'ctl_vehicle', 'sig_id'].tolist()
-tmp_con1 = [i in nonctr_id for i in train_targets_scored['sig_id']]
-mat_cor = pd.DataFrame(np.corrcoef(train_targets_scored.drop('sig_id', axis = 1)[tmp_con1].T, 
-                      train_targets_nonscored.drop('sig_id', axis = 1)[tmp_con1].T))
-mat_cor2 = mat_cor.iloc[(train_targets_scored.shape[1]-1):, 0:train_targets_scored.shape[1]-1]
-mat_cor2.index = target_nonsc_cols
-mat_cor2.columns = target_cols
-mat_cor2 = mat_cor2.dropna()
-mat_cor2_max = mat_cor2.abs().max(axis = 1)
-q_n_cut = 0.9
-target_nonsc_cols2 = mat_cor2_max[mat_cor2_max > np.quantile(mat_cor2_max, q_n_cut)].index.tolist()
-
+# Select non-scored targets
+target_nonsc_cols2 = select_ns_targets()
 logging.info("Keep {} selected non-scored targets".format(len(target_nonsc_cols2)))
 
 # Dictionary for features 
-feat_dic = {}
 GENES = [col for col in train_features.columns if col.startswith('g-')]
 CELLS = [col for col in train_features.columns if col.startswith('c-')]
+feat_dic = {}
 feat_dic['gene'] = GENES
 feat_dic['cell'] = CELLS
 
-logging.info("Quantile normalization...")
+# Quantile normalization 
+train_features, test_features = qnorm(train_features, test_features)
 
-# sample norm 
-q2 = train_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
-q7 = train_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
-qmean = (q2+q7)/2
-train_features[feat_dic['gene']] = (train_features[feat_dic['gene']].T - qmean.values).T
-q2 = test_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
-q7 = test_features[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
-qmean = (q2+q7)/2
-test_features[feat_dic['gene']] = (test_features[feat_dic['gene']].T - qmean.values).T
-
-q2 = train_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
-q7 = train_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
-qmean = (q2+q7)/2
-train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T - qmean.values).T
-qmean2 = train_features[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
-train_features[feat_dic['cell']] = (train_features[feat_dic['cell']].T / qmean2.values).T.copy()
-
-q2 = test_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
-q7 = test_features[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
-qmean = (q2+q7)/2
-test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T - qmean.values).T
-qmean2 = test_features[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
-test_features[feat_dic['cell']] = (test_features[feat_dic['cell']].T / qmean2.values).T.copy()
-
-logging.info("Remove controls...")
-
-# remove ctl
+# Remove control signatures
 train = train_features.merge(train_targets_scored, on = 'sig_id')
 train = train.merge(train_targets_nonscored[['sig_id']+target_nonsc_cols2], on = 'sig_id')
 train = train[train['cp_type']!= 'ctl_vehicle'].reset_index(drop = True)
@@ -466,13 +482,16 @@ for seed in range(params.num_seeds):
     oof += oof_ / params.num_seeds
     predictions += predictions_ / params.num_seeds
     
+    # Compute metrics 
     oof_tmp = dp(oof)
     oof_tmp = oof_tmp * params.num_seeds / (seed+1)
     sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:, i], oof_tmp[:, i]) 
                           for i in range(len(target_cols))])
 
-logging.info(np.mean([log_loss(train[target_cols].iloc[:, i], oof[:, i]) 
-            for i in range(len(target_cols))]))
+# Return metrics
+sc_dic['final'] = np.mean([log_loss(train[target_cols].iloc[:, i], oof[:, i]) 
+                          for i in range(len(target_cols))])
+logging.info(sc_dic['final'])
 
 train0[target_cols] = oof
 test[target_cols] = predictions
