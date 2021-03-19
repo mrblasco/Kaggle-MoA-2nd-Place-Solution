@@ -61,18 +61,15 @@ def valid_fn(model, loss_fn, dataloader, device):
     model.eval()
     final_loss = 0
     valid_preds = []
-
     for data in dataloader:
         inputs, targets = data['x'].to(device), data['y'].to(device)
         outputs = model(inputs)
         loss = loss_fn(outputs, targets)
-
         final_loss += loss.item()
         valid_preds.append(outputs.sigmoid().detach().cpu().numpy())
-
+    
     final_loss /= len(dataloader)
     valid_preds = np.concatenate(valid_preds)
-
     return final_loss, valid_preds
 
 def inference_fn(model, dataloader, device):
@@ -212,8 +209,10 @@ def run_training(fold, seed):
 
         train_loss = train_fn(model, optimizer, scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
-        #logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}")
-        logging.info(f" {seed}, {fold}, {epoch}, {train_loss}, {valid_loss}")
+        from sklearn.metrics import accuracy_score
+        accu = accuracy_score(np.where(valid_preds > 0.5, 1, 0), valid_df[target_cols])
+        #logging.info(f"{seed}, {fold}, {epoch}, {train_loss}, {valid_loss}, {accu}")
+        logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}, accuracy: {accu}")
         
         if valid_loss < best_loss:
             best_loss = valid_loss
@@ -224,15 +223,15 @@ def run_training(fold, seed):
             early_step += 1
             if (early_step >= params.early_stopping_steps):
                 break
-
+    
     #--------------------- PREDICTION---------------------
     testdataset = TestDataset(x_test)
     testloader = DataLoader(testdataset, batch_size = params.batch_size, shuffle = False)
-
+    
     model = Model(params)
     model.load_state_dict(torch.load(os.path.join(args.model_dir, mod_name)))
     model.to(DEVICE)
-
+    
     predictions = np.zeros((len(test_), len(target_cols)))
     predictions = inference_fn(model, testloader, DEVICE)
     return oof, predictions
@@ -337,10 +336,41 @@ def select_ns_targets (q_n_cut = 0.9):
   out = mat_cor2_max[mat_cor2_max > np.quantile(mat_cor2_max, q_n_cut)].index.tolist()
   return out
 
+def stratified_kfold(folds, target2, target_cols, vc1, vc2, nfolds = 5): 
+  # requires vc1, vc2, params.num_folds, target_cols
+  dct1 = {}; dct2 = {}    
+  # DRUGS LESS than 19x
+  skf = MultilabelStratifiedKFold(n_splits = nfolds)
+  tmp = target2.groupby('drug_id')[target_cols].mean().loc[vc1]
+  tmp_idx = tmp.index.tolist()
+  tmp_idx.sort()
+  tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
+  tmp = tmp.loc[tmp_idx2]
+  for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
+      dd = {k:fold for k in tmp.index[idxV].values}
+      dct1.update(dd)
+  # STRATIFY DRUGS MORE THAN 19X
+  skf = MultilabelStratifiedKFold(n_splits = nfolds) 
+  tmp = target2.loc[target2.drug_id.isin(vc2)].reset_index(drop = True)
+  tmp_idx = tmp.index.tolist()
+  tmp_idx.sort()
+  tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
+  tmp = tmp.loc[tmp_idx2]
+  for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
+      dd = {k:fold for k in tmp.sig_id[idxV].values}
+      dct2.update(dd)
+  # book keeping 
+  target2['kfold'] = target2.drug_id.map(dct1)
+  target2.loc[target2.kfold.isna(), 'kfold'] = target2.loc[target2.kfold.isna(), 'sig_id'].map(dct2)
+  target2.kfold = target2.kfold.astype(int)
+  folds['kfold'] = target2['kfold'].copy()
+  return folds 
 
 args = argparse.ArgumentParser()
-args.add_argument('--input_dir', default = './data/from_kaggle', help = 'Directory containing dataset')
-args.add_argument('--model_dir', default = './experiments/base_model', help = 'Directory containing params.json')
+args.add_argument('--input_dir', default = './data/from_kaggle'
+                  , help = 'Directory containing dataset')
+args.add_argument('--model_dir', default = './experiments/base_model'
+                  , help = 'Directory containing params.json')
 
 # MAIN -------------------------------------------------------
 args = args.parse_args()
@@ -360,7 +390,7 @@ SEED = range(params.num_seeds)
 # Scoring dictionary
 sc_dic = {}
 
-logging.info("Loading datasets from {}".format(args.input_dir))  
+logging.info("Loading datasets from {}".format(args.input_dir))
 
 # load data 
 train_features          = pd.read_csv(os.path.join(args.input_dir, 'train_features.csv'))
@@ -370,36 +400,40 @@ test_features           = pd.read_csv(os.path.join(args.input_dir, 'test_feature
 #sample_submission       = pd.read_csv(os.path.join(args.input_dir, 'sample_submission.csv'))
 train_drug              = pd.read_csv(os.path.join(args.input_dir, 'train_drug.csv'))
 
-# Target names 
+# Scored and non-scored targets  
 target_cols = train_targets_scored.drop('sig_id', axis = 1).columns.values.tolist()
 target_nonsc_cols = train_targets_nonscored.drop('sig_id', axis = 1).columns.values.tolist()
 
-# Select non-scored targets
+# Select subset of non-scored targets for transfer learning 
 target_nonsc_cols2 = select_ns_targets()
 logging.info("Keep {} selected non-scored targets".format(len(target_nonsc_cols2)))
 
 # Dictionary for features 
 GENES = [col for col in train_features.columns if col.startswith('g-')]
 CELLS = [col for col in train_features.columns if col.startswith('c-')]
+
+# Feature dictionary 
 feat_dic = {}
 feat_dic['gene'] = GENES
 feat_dic['cell'] = CELLS
 
-# Quantile normalization 
+# Quantile normalization by gene and cell lines
 train_features, test_features = qnorm(train_features, test_features)
 
-# Remove control signatures
+# Remove control signatures from training & testing 
 train = train_features.merge(train_targets_scored, on = 'sig_id')
-train = train.merge(train_targets_nonscored[['sig_id']+target_nonsc_cols2], on = 'sig_id')
+train = train.merge(train_targets_nonscored[['sig_id'] + target_nonsc_cols2], on = 'sig_id')
 train = train[train['cp_type']!= 'ctl_vehicle'].reset_index(drop = True)
 test = test_features[test_features['cp_type']!= 'ctl_vehicle'].reset_index(drop = True)
 
-target = train[['sig_id']+target_cols]
-target_ns = train[['sig_id']+target_nonsc_cols2]
+target = train[['sig_id'] + target_cols]
+target_ns = train[['sig_id'] + target_nonsc_cols2]
 
+# Drop cp type 
 train0 = train.drop('cp_type', axis = 1)
 test = test.drop('cp_type', axis = 1)
 
+# List of scored targets 
 target_cols = target.drop('sig_id', axis = 1).columns.values.tolist()
 
 # drug ids
@@ -407,7 +441,7 @@ tar_sig = target['sig_id'].tolist()
 train_drug = train_drug.loc[[i in tar_sig for i in train_drug['sig_id']]]
 target = target.merge(train_drug, on = 'sig_id', how = 'left') 
 
-# LOCATE DRUGS
+# LOCATE DRUGS (vc = number of signatures per drug)
 vc = train_drug.drug_id.value_counts()
 vc1 = vc.loc[vc <= 19].index
 vc2 = vc.loc[vc > 19].index
@@ -427,39 +461,15 @@ predictions = np.zeros((len(test), len(target_cols)))
 for seed in range(params.num_seeds):
 
     seed_everything(seed = seed)
-    folds = train0.copy()
     feature_cols = dp(feature_cols0)
     
-    # kfold - leave drug out
-    target2 = target.copy()
-    dct1 = {}; dct2 = {}
-    skf = MultilabelStratifiedKFold(n_splits = params.num_folds)
-    tmp = target2.groupby('drug_id')[target_cols].mean().loc[vc1]
-    tmp_idx = tmp.index.tolist()
-    tmp_idx.sort()
-    tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
-    tmp = tmp.loc[tmp_idx2]
-    for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
-        dd = {k:fold for k in tmp.index[idxV].values}
-        dct1.update(dd)
-
-    # STRATIFY DRUGS MORE THAN 19X
-    skf = MultilabelStratifiedKFold(n_splits = params.num_folds) 
-    tmp = target2.loc[target2.drug_id.isin(vc2)].reset_index(drop = True)
-    tmp_idx = tmp.index.tolist()
-    tmp_idx.sort()
-    tmp_idx2 = random.sample(tmp_idx, len(tmp_idx))
-    tmp = tmp.loc[tmp_idx2]
-    for fold, (idxT, idxV) in enumerate(skf.split(tmp, tmp[target_cols])):
-        dd = {k:fold for k in tmp.sig_id[idxV].values}
-        dct2.update(dd)
-
-    target2['kfold'] = target2.drug_id.map(dct1)
-    target2.loc[target2.kfold.isna(), 'kfold'] = target2.loc[target2.kfold.isna(), 'sig_id'].map(dct2)
-    target2.kfold = target2.kfold.astype(int)
-
-    folds['kfold'] = target2['kfold'].copy()
-
+    # Stratified K-fold 
+    folds = stratified_kfold(folds = train0.copy()
+                            , target2 = target.copy()
+                            , vc1 = vc1, vc2 = vc2
+                            , target_cols = target_cols
+                            , nfolds = params.num_folds)
+    
     train = folds.copy()
     test_ = test.copy()
 
@@ -467,7 +477,7 @@ for seed in range(params.num_seeds):
     DEVICE = ('cuda' if torch.cuda.is_available() else 'cpu')
     params.num_features  = len(feature_cols) + params.ncompo_genes + params.ncompo_cells
     num_targets   = len(target_cols)
-    num_targets_0 = len(target_nonsc_cols2)
+    num_targets_0 = len(target_nonsc_cols2) # non-scored 
     
     # Weights 
     tar_freq = np.array([np.min(list(g_table(train[target_cols].iloc[:, i]).values())) 
