@@ -51,7 +51,6 @@ def train_fn(model, optimizer, scheduler, loss_fn, dataloader, device):
         loss.backward()
         optimizer.step()
         scheduler.step()
-            
         final_loss += loss.item()
     
     final_loss /= len(dataloader)
@@ -191,8 +190,8 @@ def run_training(fold, seed):
                               , weight_decay = params.weight_decay
                               )
     scheduler = optim.lr_scheduler.OneCycleLR(optimizer = optimizer
-                                            , pct_start = 0.1   #  default = 0.3
-                                            , div_factor = 1e3  # default = 25
+                                            #, pct_start = 0.1   #  default = 0.3
+                                            #, div_factor = 1e3  # default = 25
                                             , max_lr = 1e-2
                                             , epochs = params.num_epochs
                                             , steps_per_epoch = len(trainloader)
