@@ -295,9 +295,6 @@ params = utils.Params(json_path)
 seed_everything(seed = 42)
 SEED = range(params.num_seeds)
 
-# Scoring dictionary
-sc_dic = {}
-
 logging.info("Loading datasets from {}".format(args.input_dir))
 
 # load data 
@@ -361,17 +358,15 @@ for key_i in feat_dic.keys():
     feature_cols += value_i
 
 feature_cols0 = dp(feature_cols)
-    
+
+# Avg. over multiple seeds 
+sc_dic = {} # scoring dictionary  
 oof = np.zeros((len(train), len(target_cols)))
 predictions = np.zeros((len(test), len(target_cols)))
-
-# Averaging on multiple SEEDS
 for seed in range(params.num_seeds):
 
     seed_everything(seed = seed)
     feature_cols = dp(feature_cols0)
-    
-    # Stratified K-fold 
     folds = stratified_kfold(folds = train0.copy()
                             , target2 = target.copy()
                             , vc1 = vc1, vc2 = vc2
@@ -403,13 +398,11 @@ for seed in range(params.num_seeds):
     # Compute metrics 
     oof_tmp = dp(oof)
     oof_tmp = oof_tmp * params.num_seeds / (seed+1)
-    sc_dic[seed] = np.mean([log_loss(train[target_cols].iloc[:, i], oof_tmp[:, i]) 
+    accu = accuracy_score(train[target_cols], np.where(oof_tmp > 0.25, 1, 0))
+    ll = np.mean([log_loss(train[target_cols].iloc[:, i], oof_tmp[:, i]) 
                           for i in range(len(target_cols))])
+    sc_dic[seed] = {'accuracy' : accu, 'logloss' : ll}
 
-# Return metrics
-sc_dic['final'] = np.mean([log_loss(train[target_cols].iloc[:, i], oof[:, i]) 
-                          for i in range(len(target_cols))])
-logging.info(sc_dic['final'])
 
 train0[target_cols] = oof
 test[target_cols] = predictions
@@ -417,7 +410,7 @@ test[target_cols] = predictions
 # save predictions and metrics
 train0.to_csv(os.path.join(args.model_dir, 'cnn_train.csv'), index = False)
 test.to_csv(os.path.join(args.model_dir, 'cnn_test.csv'), index = False)
-pd.DataFrame(sc_dic, index = ['sc']).to_csv(os.path.join(args.model_dir, 'cnn_sc_dic.csv'))
+pd.DataFrame(sc_dic).to_csv(os.path.join(args.model_dir, 'cnn_sc_dic.csv'))
 
 logging.info("done!")
 
