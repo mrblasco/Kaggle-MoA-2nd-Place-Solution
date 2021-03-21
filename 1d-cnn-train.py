@@ -12,7 +12,7 @@ from sklearn import preprocessing
 from sklearn.metrics import log_loss
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.metrics import log_loss
+from sklearn.metrics import accuracy_score
 
 import torch
 import torch.nn as nn
@@ -209,19 +209,15 @@ def run_training(fold, seed):
     mod_name = f"FOLD_mod11_{seed}_{fold}_.pth"
     early_step = 0    
     for epoch in range(params.num_epochs):
-
         train_loss = train_fn(model, optimizer, scheduler, loss_tr, trainloader, DEVICE)
         valid_loss, valid_preds = valid_fn(model, loss_va, validloader, DEVICE)
-        from sklearn.metrics import accuracy_score
-        accu = accuracy_score(np.where(valid_preds > 0.5, 1, 0), valid_df[target_cols])
-        #logging.info(f"{seed}, {fold}, {epoch}, {train_loss}, {valid_loss}, {accu}")
+        accu = accuracy_score(np.where(valid_preds > 0.25, 1, 0), valid_df[target_cols])
         logging.info(f"SEED: {seed}, FOLD: {fold}, EPOCH: {epoch}, train_loss: {train_loss}, valid_loss: {valid_loss}, accuracy: {accu}")
         
         if valid_loss < best_loss:
             best_loss = valid_loss
             oof[val_idx] = valid_preds
             torch.save(model.state_dict(), os.path.join(args.model_dir, mod_name))
-
         else:
             early_step += 1
             if (early_step >= params.early_stopping_steps):
