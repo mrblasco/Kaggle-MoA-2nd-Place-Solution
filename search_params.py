@@ -48,7 +48,7 @@ if __name__ == "__main__":
     # Perform hypersearch over one parameter
     learning_rates = [1e-4, 1e-3, 1e-2]
     ncompo_genes_values = [50, 250, 500]
-    smoothing_values = [0, 0.001, 0.005]
+    smoothing_values = [0, 0.001]
 
     for train_file in files:
 
