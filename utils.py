@@ -1,9 +1,114 @@
+import pandas as pd
+import numpy as np
+
 import json
 import logging
 import os
 import shutil
-
 import torch
+import random
+
+def seed_everything(seed = 42):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+
+
+def select_ns_targets(train_features, train_targets_scored, train_targets_nonscored, q_n_cut = 0.9): 
+  """
+  Select non-scored targets based on correlation with scored targets' features.
+  """
+  nonctr_id = train_features.loc[train_features['cp_type']!= 'ctl_vehicle', 'sig_id'].tolist()
+  tmp_con1 = [i in nonctr_id for i in train_targets_scored['sig_id']]
+  mat_cor = pd.DataFrame(np.corrcoef(train_targets_scored.drop('sig_id', axis = 1)[tmp_con1].T
+                        , train_targets_nonscored.drop('sig_id', axis = 1)[tmp_con1].T))
+  mat_cor2 = mat_cor.iloc[(train_targets_scored.shape[1] - 1):, 0:train_targets_scored.shape[1]-1]
+
+  target_nonsc_cols = train_targets_nonscored.drop('sig_id', axis = 1).columns.values.tolist()
+  target_cols = train_targets_scored.drop('sig_id', axis = 1).columns.values.tolist()
+
+  mat_cor2.index = target_nonsc_cols
+  mat_cor2.columns = target_cols
+  mat_cor2 = mat_cor2.dropna()
+  mat_cor2_max = mat_cor2.abs().max(axis = 1)
+  out = mat_cor2_max[mat_cor2_max > np.quantile(mat_cor2_max, q_n_cut)].index.tolist()
+  return out
+
+def qnorm(train_f, test_f, feat_dic):
+  """
+  Quantile normalization 
+  """
+  import numpy as np
+  # train = gene
+  q2 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['gene']] = (train_f[feat_dic['gene']].T - qmean.values).T
+  
+  # test = gene
+  q2 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['gene']] = (test_f[feat_dic['gene']].T - qmean.values).T
+
+  # train = cell 
+  q2 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = train_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T / qmean2.values).T.copy()
+
+  # test = cell 
+  q2 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
+  q7 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
+  qmean = (q2+q7)/2
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T - qmean.values).T
+  qmean2 = test_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
+  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T / qmean2.values).T.copy()
+  return train_f, test_f
+
+def norm_fit(df_1, saveM = True, sc_name = 'zsco'):   
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler, Normalizer, QuantileTransformer, PowerTransformer
+    ss_1_dic = {'zsco':StandardScaler(), 
+                'mima':MinMaxScaler(), 
+                'maxb':MaxAbsScaler(), 
+                'robu':RobustScaler(), 
+                'norm':Normalizer(), 
+                'quan':QuantileTransformer(n_quantiles = 100, random_state = 0, output_distribution = "normal"), 
+                'powe':PowerTransformer()}
+    ss_1 = ss_1_dic[sc_name]
+    df_2 = pd.DataFrame(ss_1.fit_transform(df_1), index = df_1.index, columns = df_1.columns)
+    if saveM == False:
+        return(df_2)
+    else:
+        return(df_2, ss_1)
+
+def norm_tra(df_1, ss_x):
+    df_2 = pd.DataFrame(ss_x.transform(df_1), index = df_1.index, columns = df_1.columns)
+    return(df_2)
+
+def g_table(list1):
+    table_dic = {}
+    for i in list1:
+        if i not in table_dic.keys():
+            table_dic[i] = 1
+        else:
+            table_dic[i] += 1
+    return(table_dic)
+
+
+def pca_pre(tr, va, te, n_comp, feat_raw, feat_new):
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components = n_comp, random_state = 42)
+    tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]), columns = feat_new)
+    va2 = pd.DataFrame(pca.transform(va[feat_raw]), columns = feat_new)
+    te2 = pd.DataFrame(pca.transform(te[feat_raw]), columns = feat_new)
+    return(tr2, va2, te2)
+
 
 # function import from cs230-github repo 
 class Params():

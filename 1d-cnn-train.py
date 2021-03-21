@@ -29,8 +29,16 @@ import copy
 from copy import deepcopy as dp
 import argparse
 import json
-import utils
 import logging
+
+import utils
+from utils import select_ns_targets
+from utils import qnorm
+from utils import seed_everything
+from utils import norm_fit
+from utils import norm_tra
+from utils import g_table
+from utils import pca_pre
 
 # CNN
 import model.cnn 
@@ -74,16 +82,12 @@ def valid_fn(model, loss_fn, dataloader, device):
 def inference_fn(model, dataloader, device):
     model.eval()
     preds = []
-
     for data in dataloader:
         inputs = data['x'].to(device)
         with torch.no_grad():
             outputs = model(inputs)
-
         preds.append(outputs.sigmoid().detach().cpu().numpy())
-
     preds = np.concatenate(preds)
-
     return preds
 
 def run_training(fold, seed):
@@ -244,97 +248,6 @@ def run_k_fold(NFOLDS, seed):
         oof += oof_
     return oof, predictions
 
-def norm_fit(df_1, saveM = True, sc_name = 'zsco'):   
-    from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler, Normalizer, QuantileTransformer, PowerTransformer
-    ss_1_dic = {'zsco':StandardScaler(), 
-                'mima':MinMaxScaler(), 
-                'maxb':MaxAbsScaler(), 
-                'robu':RobustScaler(), 
-                'norm':Normalizer(), 
-                'quan':QuantileTransformer(n_quantiles = 100, random_state = 0, output_distribution = "normal"), 
-                'powe':PowerTransformer()}
-    ss_1 = ss_1_dic[sc_name]
-    df_2 = pd.DataFrame(ss_1.fit_transform(df_1), index = df_1.index, columns = df_1.columns)
-    if saveM == False:
-        return(df_2)
-    else:
-        return(df_2, ss_1)
-
-def norm_tra(df_1, ss_x):
-    df_2 = pd.DataFrame(ss_x.transform(df_1), index = df_1.index, columns = df_1.columns)
-    return(df_2)
-
-def qnorm(train_f, test_f):
-  """
-  Quantile normalization 
-  """
-  # train = gene
-  q2 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
-  q7 = train_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
-  qmean = (q2+q7)/2
-  train_f[feat_dic['gene']] = (train_f[feat_dic['gene']].T - qmean.values).T
-  
-  # test = gene
-  q2 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.25).copy()
-  q7 = test_f[feat_dic['gene']].apply(np.quantile, axis = 1, q = 0.75).copy()
-  qmean = (q2+q7)/2
-  test_f[feat_dic['gene']] = (test_f[feat_dic['gene']].T - qmean.values).T
-
-  # train = cell 
-  q2 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
-  q7 = train_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
-  qmean = (q2+q7)/2
-  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T - qmean.values).T
-  qmean2 = train_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
-  train_f[feat_dic['cell']] = (train_f[feat_dic['cell']].T / qmean2.values).T.copy()
-
-  # test = cell 
-  q2 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.25).copy()
-  q7 = test_f[feat_dic['cell']].apply(np.quantile, axis = 1, q = 0.72).copy()
-  qmean = (q2+q7)/2
-  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T - qmean.values).T
-  qmean2 = test_f[feat_dic['cell']].abs().apply(np.quantile, axis = 1, q = 0.75).copy()+4
-  test_f[feat_dic['cell']] = (test_f[feat_dic['cell']].T / qmean2.values).T.copy()
-
-  return train_f, test_f
-
-def g_table(list1):
-    table_dic = {}
-    for i in list1:
-        if i not in table_dic.keys():
-            table_dic[i] = 1
-        else:
-            table_dic[i] += 1
-    return(table_dic)
-
-def seed_everything(seed = 42):
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-
-def pca_pre(tr, va, te, n_comp, feat_raw, feat_new):
-    pca = PCA(n_components = n_comp, random_state = 42)
-    tr2 = pd.DataFrame(pca.fit_transform(tr[feat_raw]), columns = feat_new)
-    va2 = pd.DataFrame(pca.transform(va[feat_raw]), columns = feat_new)
-    te2 = pd.DataFrame(pca.transform(te[feat_raw]), columns = feat_new)
-    return(tr2, va2, te2)
-
-def select_ns_targets (q_n_cut = 0.9): 
-  nonctr_id = train_features.loc[train_features['cp_type']!= 'ctl_vehicle', 'sig_id'].tolist()
-  tmp_con1 = [i in nonctr_id for i in train_targets_scored['sig_id']]
-  mat_cor = pd.DataFrame(np.corrcoef(train_targets_scored.drop('sig_id', axis = 1)[tmp_con1].T
-                        , train_targets_nonscored.drop('sig_id', axis = 1)[tmp_con1].T))
-  mat_cor2 = mat_cor.iloc[(train_targets_scored.shape[1] - 1):, 0:train_targets_scored.shape[1]-1]
-  mat_cor2.index = target_nonsc_cols
-  mat_cor2.columns = target_cols
-  mat_cor2 = mat_cor2.dropna()
-  mat_cor2_max = mat_cor2.abs().max(axis = 1)
-  out = mat_cor2_max[mat_cor2_max > np.quantile(mat_cor2_max, q_n_cut)].index.tolist()
-  return out
-
 def stratified_kfold(folds, target2, target_cols, vc1, vc2, nfolds = 5): 
   # requires vc1, vc2, params.num_folds, target_cols
   dct1 = {}; dct2 = {}    
@@ -404,7 +317,7 @@ target_cols = train_targets_scored.drop('sig_id', axis = 1).columns.values.tolis
 target_nonsc_cols = train_targets_nonscored.drop('sig_id', axis = 1).columns.values.tolist()
 
 # Select subset of non-scored targets for transfer learning 
-target_nonsc_cols2 = select_ns_targets()
+target_nonsc_cols2 = select_ns_targets(train_features, train_targets_scored, train_targets_nonscored)
 logging.info("Keep {} selected non-scored targets".format(len(target_nonsc_cols2)))
 
 # Dictionary for features 
@@ -417,7 +330,7 @@ feat_dic['gene'] = GENES
 feat_dic['cell'] = CELLS
 
 # Quantile normalization by gene and cell lines
-train_features, test_features = qnorm(train_features, test_features)
+train_features, test_features = qnorm(train_features, test_features, feat_dic)
 
 # Remove control signatures from training & testing 
 train = train_features.merge(train_targets_scored, on = 'sig_id')
